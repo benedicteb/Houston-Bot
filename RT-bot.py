@@ -10,11 +10,37 @@ from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
 """CLASSES"""
-class RTBot(JabberBot):
-    def __init__(self, username, password, RT):
-        super(RTBot, self).__init__(username, password)
-        self.RT = RT
+class MUCJabberBot(JabberBot):
+    ''' Add features in JabberBot to allow it to handle specific
+    caractheristics of multiple users chatroom (MUC). '''
+    def __init__(self, *args, **kwargs):
+        # answer only direct messages or not?
+        self.only_direct = kwargs.get('only_direct', False)
 
+        try:
+            del kwargs['only_direct']
+        except KeyError:
+            pass
+
+        # initialize jabberbot
+        super(MUCJabberBot, self).__init__(*args, **kwargs)
+
+        # create a regex to check if a message is a direct message
+        self.direct_message_re = r'\s+#(\d+)'
+
+    def callback_message(self, conn, mess):
+        message = mess.getBody()
+        if not message:
+            return
+
+        tickets = re.findall(self.direct_message_re, message)
+        if len(tickets) != 0:
+            mess.setBody('rtinfo %s' % tickets[0])
+            return super(MUCJabberBot, self).callback_message(conn, mess)
+        else:
+            return
+
+class RTBot(MUCJabberBot):
     @botcmd
     def rtinfo(self, mess, args):
         """
@@ -23,12 +49,8 @@ class RTBot(JabberBot):
         ticket_id = str(mess.getBody().split()[-1])
         return self.RT.rt_string(ticket_id)
 
-    @botcmd
-    def test(self, mess, args):
-        """
-        Test command to check that the bot is there.
-        """
-        return 'test: ' + args
+    def give_RT_conn(self, RT):
+        self.RT = RT
 
 class RTCommunicator(object):
     """
@@ -66,7 +88,12 @@ if __name__ == '__main__':
     rt_password = getpass('RT Password: ')
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
+    room = raw_input('Room to join: ')
+
+    bot = RTBot(chat_username, chat_password, only_direct=True)
 
     RT = RTCommunicator(rt_username, rt_password)
-    bot = RTBot(chat_username, chat_password, RT)
+    bot.give_RT_conn(RT)
+
+    bot.muc_join_room(room)
     bot.serve_forever()
