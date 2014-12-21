@@ -27,7 +27,7 @@ class MUCJabberBot(JabberBot):
         super(MUCJabberBot, self).__init__(*args, **kwargs)
 
         # create a regex to check if a message is a direct message
-        self.direct_message_re = r'\s+#(\d+)'
+        self.direct_message_re = r'#(\d+)'
 
     def callback_message(self, conn, mess):
         message = mess.getBody()
