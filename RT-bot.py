@@ -11,8 +11,9 @@ from getpass import getpass
 
 """CLASSES"""
 class MUCJabberBot(JabberBot):
-    ''' Add features in JabberBot to allow it to handle specific
-    caractheristics of multiple users chatroom (MUC). '''
+    """
+    Middle-person class for adding some MUC compatability to the Jabberbot.
+    """
     def __init__(self, *args, **kwargs):
         # answer only direct messages or not?
         self.only_direct = kwargs.get('only_direct', False)
