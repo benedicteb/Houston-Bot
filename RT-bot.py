@@ -20,7 +20,8 @@ class RTBot(JabberBot):
         """
         Tells you some RT info for given ticket id.
         """
-        return self.RT.rt_string(int(args))
+        ticket_id = str(mess.getBody().split()[-1])
+        return self.RT.rt_string(ticket_id)
 
     @botcmd
     def test(self, mess, args):
@@ -29,7 +30,6 @@ class RTBot(JabberBot):
         """
         return 'test: ' + args
 
-"""FUNCTIONS"""
 class RTCommunicator(object):
     """
     Class just needed for storing username / password.
@@ -40,7 +40,7 @@ class RTCommunicator(object):
         """
         self.user, self.password = username, password
 
-    def rt_string(ticket_id):
+    def rt_string(self, ticket_id):
         """
         Returns string describing info og given RT ticket id.
         """
