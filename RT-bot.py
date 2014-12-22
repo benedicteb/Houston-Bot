@@ -81,6 +81,10 @@ class RTCommunicator(object):
         return ' - '.join([subject, owner, status, requestors, link_to_ticket])
 
 if __name__ == '__main__':
+    # Just for connection info ++
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     # Parse commandline
     parser = argparse.ArgumentParser()
 
@@ -89,17 +93,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Just for connection info ++
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-
+    # Gather needed credentials
     rt_username = raw_input('RT Username: ')
     rt_password = getpass('RT Password: ')
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
 
+    # Initiate bot
     bot = RTBot(chat_username, chat_password, only_direct=True)
 
+    # Give the RT communicator class to the bot
     RT = RTCommunicator(rt_username, rt_password)
     bot.give_RT_conn(RT)
 
