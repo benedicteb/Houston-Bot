@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse
+import urllib2, re, argparse, os
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
