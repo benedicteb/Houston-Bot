@@ -38,7 +38,8 @@ class MUCJabberBot(JabberBot):
         # reasons, since general RT access is bad.
         message_type = mess.getType()
         if message_type == 'chat':
-            return "Sorry, I'm not allowed to talk privately."
+            mess.setBody('private')
+            return super(MUCJabberBot, self).callback_message(conn, mess)
 
         tickets = re.findall(self.direct_message_re, message)
         if len(tickets) != 0:
@@ -55,6 +56,13 @@ class RTBot(MUCJabberBot):
         """
         ticket_id = str(mess.getBody().split()[-1])
         return self.RT.rt_string(ticket_id)
+
+    @botcmd
+    def private(self, mess, args):
+        """
+        Tells user that this bot cannot communicate via private chat.
+        """
+        return "Sorry, I'm not allowed to talk privately."
 
     def give_RT_conn(self, RT):
         self.RT = RT
