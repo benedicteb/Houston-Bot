@@ -34,6 +34,12 @@ class MUCJabberBot(JabberBot):
         if not message:
             return
 
+        # Hack for not replying to private messages. This is for security
+        # reasons, since general RT access is bad.
+        message_type = mess.getType()
+        if message_type == 'chat':
+            return "Sorry, I'm not allowed to talk privately."
+
         tickets = re.findall(self.direct_message_re, message)
         if len(tickets) != 0:
             mess.setBody('rtinfo %s' % tickets[0])
