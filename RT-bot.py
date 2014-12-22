@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re
+import urllib2, re, argparse
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
@@ -81,6 +81,14 @@ class RTCommunicator(object):
         return ' - '.join([subject, owner, status, requestors, link_to_ticket])
 
 if __name__ == '__main__':
+    # Parse commandline
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--rooms', help='Textfile with XMPP rooms one per line.',
+        default='default_rooms.txt', type=str)
+
+    args = parser.parse_args()
+
     # Just for connection info ++
     import logging
     logging.basicConfig(level=logging.DEBUG)
@@ -89,12 +97,28 @@ if __name__ == '__main__':
     rt_password = getpass('RT Password: ')
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
-    room = raw_input('Room to join: ')
 
     bot = RTBot(chat_username, chat_password, only_direct=True)
 
     RT = RTCommunicator(rt_username, rt_password)
     bot.give_RT_conn(RT)
 
-    bot.muc_join_room(room)
+    if not os.path.isfile(args.rooms):
+        # If room-file doesnt exist, ask for a room and create the file
+        room = raw_input('Room to join: ')
+
+        outfile = open(args.rooms, 'w')
+        outfile.write(room)
+        outfile.close()
+
+        bot.muc_join_room(room)
+    else:
+        # If it does exist, loop through it and join all the rooms
+        infile = open(args.rooms, 'r')
+
+        for line in infile:
+            bot.muc_join_room(line.strip())
+
+        infile.close()
+
     bot.serve_forever()
