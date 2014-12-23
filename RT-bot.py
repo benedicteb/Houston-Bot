@@ -89,7 +89,13 @@ class RTCommunicator(object):
         subject = re.findall(r'^Subject: (.+)$', output, re.MULTILINE)[0]
         owner = re.findall(r'^Owner: (.+)$', output, re.MULTILINE)[0]
         status = re.findall(r'^Status: (.+)$', output, re.MULTILINE)[0]
-        requestors = re.findall(r'^Requestors: (.+)$', output, re.MULTILINE)[0]
+
+        # Requestors can be empty
+        try:
+            requestors = re.findall(r'^Requestors: (.+)$', output, re.MULTILINE)[0]
+        except:
+            requestors = '(no requestors)'
+
         link_to_ticket = 'https://rt.uio.no/Ticket/Display.html?id=%s' % ticket_id
 
         return ' - '.join([subject, owner, status, requestors, link_to_ticket])
