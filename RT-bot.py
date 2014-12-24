@@ -71,11 +71,16 @@ class RTCommunicator(object):
     """
     Class just needed for storing username / password.
     """
-    def __init__(self, username, password):
+    def __init__(self, username=False, password=False):
         """
         username, password: For RT
         """
-        self.user, self.password = username, password
+        # Gather credentials if not given
+        if not username and not password:
+            self.user = raw_input('RT Username: ')
+            self.password = getpass('RT Password: ')
+        else:
+            self.user, self.password = username, password
 
     def rt_string(self, ticket_id):
         """
@@ -113,9 +118,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Gather needed credentials
-    rt_username = raw_input('RT Username: ')
-    rt_password = getpass('RT Password: ')
+    # Gather chat credentials
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
 
@@ -123,7 +126,7 @@ if __name__ == '__main__':
     bot = RTBot(chat_username, chat_password, only_direct=True)
 
     # Give the RT communicator class to the bot
-    RT = RTCommunicator(rt_username, rt_password)
+    RT = RTCommunicator()
     bot.give_RT_conn(RT)
 
     if not os.path.isfile(args.rooms):
