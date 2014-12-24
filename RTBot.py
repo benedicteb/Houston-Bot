@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os, urllib, time, threading
+import urllib2, re, argparse, os, urllib, time, threading, xmpp
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
@@ -52,6 +52,14 @@ class MUCJabberBot(JabberBot):
             return
 
 class RTBot(MUCJabberBot):
+    def __init__(self, username, password, queues):
+        """
+        queues is which queues to broadcast status from.
+        """
+        self.joined_rooms = []
+        self.queues = queues
+        super(RTBot, self).__init__(username, password, only_direct=True)
+
     @botcmd
     def rtinfo(self, mess, args):
         """
@@ -67,14 +75,12 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
-    @botcmd
-    def broadcast(self, mess, args):
+    def muc_join_room(self, room):
         """
-        Broadcast message about number of unowned open tickets every hour.
+        Need a list of all joined rooms.
         """
-        where = 'houston'
-        return 'There are %d unowned tickets in queue %s.' \
-                        % (self.RT.get_no_unowned(where), where)
+        self.joined_rooms.append(room)
+        super(RTBot, self).muc_join_room(room)
 
     def give_RT_conn(self, RT):
         """
@@ -83,8 +89,15 @@ class RTBot(MUCJabberBot):
 
     def thread_proc(self):
         while not self.thread_killed:
-            self.broadcast('', '')
-            for i in range(60*60):
+            for room in self.joined_rooms:
+                for where in self.queues:
+                    text =  'There are %d unowned open tickets in queue %s.' \
+                                    % (self.RT.get_no_unowned(where), where)
+                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                    self.conn.send(message)
+
+            # Broadcast every hour (60 * 60 seconds)
+            for i in range(5):
                 time.sleep(1)
                 if self.thread_killed:
                     return
@@ -167,6 +180,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--rooms', help='Textfile with XMPP rooms one per line.',
         default='default_rooms.txt', type=str)
+    parser.add_argument('--queues', help='Which queues to broadcast status from.',
+        type=str)
 
     args = parser.parse_args()
 
@@ -174,13 +189,35 @@ if __name__ == '__main__':
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
 
+    # Write queues file
+    filename = 'queues.txt'
+    if not os.path.isfile(filename):
+        # If room-file doesnt exist, ask for a room and create the file
+        queue = raw_input('Queue to broadcast status from: ')
+
+        outfile = open(filename, 'w')
+        outfile.write(queue)
+        outfile.close()
+
+        queue = [queue]
+    else:
+        # If it does exist, loop through it and list all queues
+        infile = open(filename, 'r')
+        queue = []
+
+        for line in infile:
+            queue.append(line)
+
+        infile.close()
+
     # Initiate bot
-    bot = RTBot(chat_username, chat_password, only_direct=True)
+    bot = RTBot(chat_username, chat_password, queue)
 
     # Give the RT communicator class to the bot
     RT = RTCommunicator()
     bot.give_RT_conn(RT)
 
+    # Write rooms file
     if not os.path.isfile(args.rooms):
         # If room-file doesnt exist, ask for a room and create the file
         room = raw_input('Room to join: ')
