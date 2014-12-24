@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os
+import urllib2, re, argparse, os, urllib
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
@@ -104,6 +104,36 @@ class RTCommunicator(object):
         link_to_ticket = 'https://rt.uio.no/Ticket/Display.html?id=%s' % ticket_id
 
         return ' - '.join([subject, owner, status, requestors, link_to_ticket])
+
+    def get_all_tickets(self, queue):
+        """
+        Returns all tickets open or new from given queue not including "TIL
+        INFO" cases.
+        """
+        query = "Owner = 'Nobody' AND (Status = 'new' OR Status = 'open')"
+        query += " AND Queue='%s' AND Subject NOT LIKE 'TIL INFO'" % queue
+
+        params = {
+            'user' : self.user,
+            'pass' : self.password,
+            'query' : query
+        }
+
+        urlbase = "https://rt.uio.no/REST/1.0/search/ticket?"
+        full_link = ''.join([urlbase, urllib.urlencode(params)])
+
+        output = urllib2.urlopen(full_link).read()
+
+        sr = r'^(\d+): (.*)$'
+
+        return re.findall(sr, output, re.MULTILINE)
+
+    def get_no_unowned(self, queue):
+        """
+        Returns int representing number of unowned open tickets not including
+        til info cases in given queue.
+        """
+        return len(self.get_all_tickets(queue))
 
 if __name__ == '__main__':
     # Just for connection info ++
