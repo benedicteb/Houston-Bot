@@ -97,7 +97,7 @@ class RTBot(MUCJabberBot):
                     self.conn.send(message)
 
             # Broadcast every hour (60 * 60 seconds)
-            for i in range(5):
+            for i in range(60*60):
                 time.sleep(1)
                 if self.thread_killed:
                     return
