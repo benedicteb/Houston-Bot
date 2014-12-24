@@ -200,5 +200,5 @@ if __name__ == '__main__':
         infile.close()
 
     th = threading.Thread(target=bot.thread_proc)
-    bot.serve_forever(connect_fallback=lambda: th.start())
+    bot.serve_forever(connect_callback=lambda: th.start())
     bot.thread_killed = True
