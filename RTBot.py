@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os, urllib
+import urllib2, re, argparse, os, urllib, time, threading
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 
@@ -28,6 +28,9 @@ class MUCJabberBot(JabberBot):
 
         # create a regex to check if a message is a direct message
         self.direct_message_re = r'#(\d+)'
+
+        # Message queue needed for broadcasting
+        self.thread_killed = False
 
     def callback_message(self, conn, mess):
         message = mess.getBody()
@@ -64,8 +67,27 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
+    @botcmd
+    def broadcast(self, mess, args):
+        """
+        Broadcast message about number of unowned open tickets every hour.
+        """
+        where = 'houston'
+        return 'There are %d unowned tickets in queue %s.' \
+                        % (self.RT.get_no_unowned(where), where)
+
     def give_RT_conn(self, RT):
+        """
+        """
         self.RT = RT
+
+    def thread_proc(self):
+        while not self.thread_killed:
+            self.broadcast('', '')
+            for i in range(60*60):
+                time.sleep(1)
+                if self.thread_killed:
+                    return
 
 class RTCommunicator(object):
     """
@@ -177,4 +199,6 @@ if __name__ == '__main__':
 
         infile.close()
 
-    bot.serve_forever()
+    th = threading.Thread(target=bot.thread_proc)
+    bot.serve_forever(connect_fallback=lambda: th.start())
+    bot.thread_killed = True
