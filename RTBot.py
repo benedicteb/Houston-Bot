@@ -221,6 +221,7 @@ if __name__ == '__main__':
 
             outfile = open(filename, 'w')
             outfile.write(queue)
+            outfile.write('\n')
             outfile.close()
 
             queue = [queue]
@@ -247,6 +248,7 @@ if __name__ == '__main__':
 
         outfile = open(args.rooms, 'w')
         outfile.write(room)
+        outfile.write('\n')
         outfile.close()
 
         bot.muc_join_room(room)
