@@ -140,20 +140,15 @@ class RTCommunicator(object):
 
         return ' - '.join([subject, owner, status, requestors, link_to_ticket])
 
-    def get_all_tickets(self, queue):
+    def search_tickets(self, query):
         """
-        Returns all tickets open or new from given queue not including "TIL
-        INFO" cases.
+        Returns id + ticket subject as 2d list from given query.
         """
-        query = "Owner = 'Nobody' AND (Status = 'new' OR Status = 'open')"
-        query += " AND Queue='%s' AND Subject NOT LIKE 'TIL INFO'" % queue
-
         params = {
             'user' : self.user,
             'pass' : self.password,
             'query' : query
         }
-
         urlbase = "https://rt.uio.no/REST/1.0/search/ticket?"
         full_link = ''.join([urlbase, urllib.urlencode(params)])
 
@@ -163,12 +158,35 @@ class RTCommunicator(object):
 
         return re.findall(sr, output, re.MULTILINE)
 
-    def get_no_unowned(self, queue):
+    def get_all_open_tickets(self, queue):
+        """
+        """
+        query = "Queue = '%s' AND (Status = 'new' OR Status = 'open')" % queue
+        query += " AND Subject NOT LIKE 'Til info'"
+
+        return self.search_tickets(query)
+
+    def get_all_unowned_open_tickets(self, queue):
+        """
+        Returns all tickets open or new from given queue not including "TIL
+        INFO" cases.
+        """
+        query = "Owner = 'Nobody' AND (Status = 'new' OR Status = 'open')"
+        query += " AND Queue='%s' AND Subject NOT LIKE 'TIL INFO'" % queue
+
+        return self.search_tickets(query)
+
+    def get_no_unowned_open(self, queue):
         """
         Returns int representing number of unowned open tickets not including
         til info cases in given queue.
         """
-        return len(self.get_all_tickets(queue))
+        return len(self.get_all_unowned_open_tickets(queue))
+
+    def get_no_all_open(self, queue):
+        """
+        """
+        return len(self.get_all_open_tickets(queue))
 
 if __name__ == '__main__':
     # Just for connection info ++
