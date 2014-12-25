@@ -202,6 +202,8 @@ if __name__ == '__main__':
         default='default_rooms.txt', type=str)
     parser.add_argument('--queues', help='Which queues to broadcast status from.',
         type=str)
+    parser.add_argument('--broadcast', help='Should bot broadcast queue status?',
+        action='store_true')
 
     args = parser.parse_args()
 
@@ -211,24 +213,25 @@ if __name__ == '__main__':
 
     # Write queues file
     filename = 'queues.txt'
-    if not os.path.isfile(filename):
-        # If room-file doesnt exist, ask for a room and create the file
-        queue = raw_input('Queue to broadcast status from: ')
+    queue = []
+    if args.broadcast:
+        if not os.path.isfile(filename):
+            # If room-file doesnt exist, ask for a room and create the file
+            queue = raw_input('Queue to broadcast status from: ')
 
-        outfile = open(filename, 'w')
-        outfile.write(queue)
-        outfile.close()
+            outfile = open(filename, 'w')
+            outfile.write(queue)
+            outfile.close()
 
-        queue = [queue]
-    else:
-        # If it does exist, loop through it and list all queues
-        infile = open(filename, 'r')
-        queue = []
+            queue = [queue]
+        else:
+            # If it does exist, loop through it and list all queues
+            infile = open(filename, 'r')
 
-        for line in infile:
-            queue.append(line)
+            for line in infile:
+                queue.append(line)
 
-        infile.close()
+            infile.close()
 
     # Initiate bot
     bot = RTBot(chat_username, chat_password, queue)
@@ -256,6 +259,9 @@ if __name__ == '__main__':
 
         infile.close()
 
-    th = threading.Thread(target=bot.thread_proc)
-    bot.serve_forever(connect_callback=lambda: th.start())
-    bot.thread_killed = True
+    if args.broadcast:
+        th = threading.Thread(target=bot.thread_proc)
+        bot.serve_forever(connect_callback=lambda: th.start())
+        bot.thread_killed = True
+    else:
+        bot.serve_forever()
