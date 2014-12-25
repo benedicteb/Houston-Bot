@@ -90,9 +90,11 @@ class RTBot(MUCJabberBot):
     def thread_proc(self):
         while not self.thread_killed:
             for room in self.joined_rooms:
-                for where in self.queues:
-                    text =  'There are %d unowned open tickets in queue %s.' \
-                                    % (self.RT.get_no_unowned(where), where)
+                for queue in self.queues:
+                    tot = self.RT.get_no_all_all_open(queue)
+                    unowned = self.RT.get_all_unowned_open(queue)
+                    text = "'%s' : %d unowned of total %d tickets."\
+                            % (queue, unowned, tot)
                     message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                     self.conn.send(message)
 
@@ -166,7 +168,7 @@ class RTCommunicator(object):
 
         return self.search_tickets(query)
 
-    def get_all_unowned_open_tickets(self, queue):
+    def get_all_unowned_open(self, queue):
         """
         Returns all tickets open or new from given queue not including "TIL
         INFO" cases.
@@ -181,7 +183,7 @@ class RTCommunicator(object):
         Returns int representing number of unowned open tickets not including
         til info cases in given queue.
         """
-        return len(self.get_all_unowned_open_tickets(queue))
+        return len(self.get_all_unowned_open(queue))
 
     def get_no_all_open(self, queue):
         """
