@@ -91,8 +91,8 @@ class RTBot(MUCJabberBot):
         while not self.thread_killed:
             for room in self.joined_rooms:
                 for queue in self.queues:
-                    tot = self.RT.get_no_all_all_open(queue)
-                    unowned = self.RT.get_all_unowned_open(queue)
+                    tot = self.RT.get_no_all_open(queue)
+                    unowned = self.RT.get_no_unowned_open(queue)
                     text = "'%s' : %d unowned of total %d tickets."\
                             % (queue, unowned, tot)
                     message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
