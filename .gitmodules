@@ -1,0 +1,3 @@
+[submodule "pyRT"]
+	path = pyRT
+	url = git@github.com:benedicteb/pyRT.git
