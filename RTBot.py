@@ -8,6 +8,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 import urllib2, re, argparse, os, urllib, time, threading, xmpp
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
+from pyRT.src.RT import RTCommunicator
 
 """CLASSES"""
 class MUCJabberBot(JabberBot):
@@ -103,92 +104,6 @@ class RTBot(MUCJabberBot):
                 time.sleep(1)
                 if self.thread_killed:
                     return
-
-class RTCommunicator(object):
-    """
-    Class just needed for storing username / password.
-    """
-    def __init__(self, username=False, password=False):
-        """
-        username, password: For RT
-        """
-        # Gather credentials if not given
-        if not username and not password:
-            self.user = raw_input('RT Username: ')
-            self.password = getpass('RT Password: ')
-        else:
-            self.user, self.password = username, password
-
-    def rt_string(self, ticket_id):
-        """
-        Returns string describing info og given RT ticket id.
-        """
-        urlbase = 'https://rt.uio.no/REST/1.0/ticket/%s/show' % ticket_id
-        getlink = urlbase + '/' + '?user=' + self.user + '&pass=' + self.password
-
-        output = urllib2.urlopen(getlink).read()
-
-        subject = re.findall(r'^Subject: (.+)$', output, re.MULTILINE)[0]
-        owner = re.findall(r'^Owner: (.+)$', output, re.MULTILINE)[0]
-        status = re.findall(r'^Status: (.+)$', output, re.MULTILINE)[0]
-
-        # Requestors can be empty
-        try:
-            requestors = re.findall(r'^Requestors: (.+)$', output, re.MULTILINE)[0]
-        except:
-            requestors = '(no requestors)'
-
-        link_to_ticket = 'https://rt.uio.no/Ticket/Display.html?id=%s' % ticket_id
-
-        return ' - '.join([subject, owner, status, requestors, link_to_ticket])
-
-    def search_tickets(self, query):
-        """
-        Returns id + ticket subject as 2d list from given query.
-        """
-        params = {
-            'user' : self.user,
-            'pass' : self.password,
-            'query' : query
-        }
-        urlbase = "https://rt.uio.no/REST/1.0/search/ticket?"
-        full_link = ''.join([urlbase, urllib.urlencode(params)])
-
-        output = urllib2.urlopen(full_link).read()
-
-        sr = r'^(\d+): (.*)$'
-
-        return re.findall(sr, output, re.MULTILINE)
-
-    def get_all_open_tickets(self, queue):
-        """
-        """
-        query = "Queue = '%s' AND (Status = 'new' OR Status = 'open')" % queue
-        query += " AND Subject NOT LIKE 'Til info'"
-
-        return self.search_tickets(query)
-
-    def get_all_unowned_open(self, queue):
-        """
-        Returns all tickets open or new from given queue not including "TIL
-        INFO" cases.
-        """
-        query = "Owner = 'Nobody' AND (Status = 'new' OR Status = 'open')"
-        query += " AND Queue='%s' AND Subject NOT LIKE 'TIL INFO'" % queue
-
-        return self.search_tickets(query)
-
-    def get_no_unowned_open(self, queue):
-        """
-        Returns int representing number of unowned open tickets not including
-        til info cases in given queue.
-        """
-        return len(self.get_all_unowned_open(queue))
-
-    def get_no_all_open(self, queue):
-        """
-        """
-        return len(self.get_all_open_tickets(queue))
 
 if __name__ == '__main__':
     # Just for connection info ++
