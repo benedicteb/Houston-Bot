@@ -145,7 +145,7 @@ if __name__ == '__main__':
             infile = open(filename, 'r')
 
             for line in infile:
-                queue.append(line)
+                queue.append(line.strip())
 
             infile.close()
 
