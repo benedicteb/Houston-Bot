@@ -10,6 +10,9 @@ from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
 
+"""CONSTANTS"""
+_NEW_PACKAGE_COMMAND = r'#nypakke'
+
 """CLASSES"""
 class MUCJabberBot(JabberBot):
     """
@@ -29,6 +32,9 @@ class MUCJabberBot(JabberBot):
 
         # create a regex to check if a message is a direct message
         self.direct_message_re = r'#(\d+)'
+
+        # Re for searching for new package command
+        self.new_package = _NEW_PACKAGE_COMMAND
 
         # Message queue needed for broadcasting
         self.thread_killed = False
