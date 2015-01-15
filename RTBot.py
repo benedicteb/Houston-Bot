@@ -76,12 +76,12 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
-    def muc_join_room(self, room):
+    def muc_join_room(self, room, *args, **kwargs):
         """
         Need a list of all joined rooms.
         """
         self.joined_rooms.append(room)
-        super(RTBot, self).muc_join_room(room)
+        super(RTBot, self).muc_join_room(room, *args, **kwargs)
 
     def give_RT_conn(self, RT):
         """
@@ -156,6 +156,9 @@ if __name__ == '__main__':
     RT = RTCommunicator()
     bot.give_RT_conn(RT)
 
+    # Bot nickname
+    nickname = 'Anna'
+
     # Write rooms file
     if not os.path.isfile(args.rooms):
         # If room-file doesnt exist, ask for a room and create the file
@@ -166,13 +169,13 @@ if __name__ == '__main__':
         outfile.write('\n')
         outfile.close()
 
-        bot.muc_join_room(room)
+        bot.muc_join_room(room, username=nickname)
     else:
         # If it does exist, loop through it and join all the rooms
         infile = open(args.rooms, 'r')
 
         for line in infile:
-            bot.muc_join_room(line.strip())
+            bot.muc_join_room(line.strip(), username=nickname)
 
         infile.close()
 
