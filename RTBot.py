@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os, urllib, time, threading, xmpp
+import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
@@ -91,7 +91,18 @@ class RTBot(MUCJabberBot):
     def thread_proc(self):
         while not self.thread_killed:
             for room in self.joined_rooms:
+                # Break loop if outside work hours (however give room so at
+                # least one status before work starts)
+                now = datetime.datetime.now()
+                start = 7
+                end = 21
+                if now.hour > end or now.hour < start:
+                    break
+
                 for queue in self.queues:
+                    # Assert just to be sure that breaking is done correctly
+                    assert now.hour < end and now.hour > start
+
                     tot = self.RT.get_no_all_open(queue)
                     unowned = self.RT.get_no_unowned_open(queue)
                     text = "'%s' : %d unowned of total %d tickets."\
