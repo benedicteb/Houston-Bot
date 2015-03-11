@@ -120,29 +120,24 @@ class RTBot(MUCJabberBot):
         self.RT = RT
 
     def thread_proc(self):
+        start = 8
+        end = 20
+
         while not self.thread_killed:
-            for room in self.joined_rooms:
-                # Break loop if outside work hours (however give room so at
-                # least one status before work starts)
-                now = datetime.datetime.now()
-                start = 7
-                end = 21
-                if now.hour > end or now.hour < start:
-                    break
+            now = datetime.datetime.now()
 
-                for queue in self.queues:
-                    tot = self.RT.get_no_all_open(queue)
-                    unowned = self.RT.get_no_unowned_open(queue)
-                    text = "'%s' : %d unowned of total %d tickets."\
-                            % (queue, unowned, tot)
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+            if now.minute == 0 and now.hour <= end and now.hour >= start:
+                for room in self.joined_rooms:
+                    for queue in self.queues:
+                        tot = self.RT.get_no_all_open(queue)
+                        unowned = self.RT.get_no_unowned_open(queue)
+                        text = "'%s' : %d unowned of total %d tickets."\
+                                % (queue, unowned, tot)
+                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                        self.conn.send(message)
 
-            # Broadcast every hour (60 * 60 seconds)
-            for i in range(60*60):
-                time.sleep(1)
-                if self.thread_killed:
-                    return
+            # Do a tick every minute
+            time.sleep(60)
 
 if __name__ == '__main__':
     # Just for connection info ++
