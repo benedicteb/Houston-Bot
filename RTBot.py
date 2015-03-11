@@ -147,7 +147,8 @@ class RTBot(MUCJabberBot):
                         self.conn.send(message)
 
             # Do a tick every minute
-            time.sleep(60)
+            for i in range(60):
+                time.sleep(1)
 
 if __name__ == '__main__':
     # Just for connection info ++
