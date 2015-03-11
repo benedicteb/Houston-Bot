@@ -45,6 +45,9 @@ class MUCJabberBot(JabberBot):
             mess.setBody('private')
             return super(MUCJabberBot, self).callback_message(conn, mess)
 
+        if re.search('#morgenru', message):
+            mess.setBody('morgenrutiner')
+
         tickets = re.findall(self.direct_message_re, message)
         if len(tickets) != 0:
             mess.setBody('rtinfo %s' % tickets[0])
@@ -68,6 +71,22 @@ class RTBot(MUCJabberBot):
         """
         ticket_id = str(mess.getBody().split()[-1])
         return self.RT.rt_string(ticket_id)
+
+    @botcmd
+    def morgenrutiner(self, mess, args):
+        """
+        Tells the morgenrutiner.
+        """
+        info = \
+"""
+1. Skru av alarmer, åpne gitteret og sjekk maskinrommet
+2. Sjekk av brusautomaten
+3. Sjekk på pauserommet
+4. Sjekk diverse skrivere og fyll på papir dersom nødvendig
+5. Sjekk posthylla vår i 3. etg. (USIT-administrasjonen), merket "Houston". 
+"""
+
+        return info
 
     @botcmd
     def private(self, mess, args):
@@ -100,9 +119,6 @@ class RTBot(MUCJabberBot):
                     break
 
                 for queue in self.queues:
-                    # Assert just to be sure that breaking is done correctly
-                    assert now.hour < end and now.hour > start
-
                     tot = self.RT.get_no_all_open(queue)
                     unowned = self.RT.get_no_unowned_open(queue)
                     text = "'%s' : %d unowned of total %d tickets."\
