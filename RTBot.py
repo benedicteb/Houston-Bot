@@ -84,10 +84,21 @@ class RTBot(MUCJabberBot):
 2. Sjekk av brusautomaten
 3. Sjekk på pauserommet
 4. Sjekk diverse skrivere og fyll på papir dersom nødvendig
-5. Sjekk posthylla vår i 3. etg. (USIT-administrasjonen), merket "Houston". 
-"""
+5. Sjekk posthylla vår i 3. etg. (USIT-administrasjonen), merket "Houston"."""
 
         return info
+
+    def godmorgen(self, mess, args):
+        """
+        Si god morgen.
+        """
+        return "God morgen, førstelinja!"
+
+    def godkveld(self, mess, args):
+        """
+        Si god kveld.
+        """
+        return "God kveld!"
 
     @botcmd
     def private(self, mess, args):
