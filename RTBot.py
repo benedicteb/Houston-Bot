@@ -214,14 +214,15 @@ class RTBot(MUCJabberBot):
                     solved_today = 0
                     spam_del_today = 0
 
-                for room in self.joined_rooms:
-                    text = "%d cases were resolved today in 'houston'" % solved_today
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+                if solved_today != 0 and spam_del_today != 0:
+                    for room in self.joined_rooms:
+                        text = "%d cases were resolved today in 'houston'" % solved_today
+                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                        self.conn.send(message)
 
-                    text = "%d spam were deleted today from 'spam-suspects'" % spam_del_today
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+                        text = "%d spam were deleted today from 'spam-suspects'" % spam_del_today
+                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                        self.conn.send(message)
 
             if now.minute == 30 and now.hour == end-1:
                 for room in self.joined_rooms:
