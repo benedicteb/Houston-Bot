@@ -219,6 +219,12 @@ class RTBot(MUCJabberBot):
                     message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                     self.conn.send(message)
 
+            if now.minute == 30 and now.hour == end-1:
+                for room in self.joined_rooms:
+                    text = "Nå kan en begynne å tenke på #kveldsrunden!"
+                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                    self.conn.send(message)
+
             # Do a tick every minute
             for i in range(60):
                 time.sleep(1)
