@@ -78,15 +78,20 @@ class RTBot(MUCJabberBot):
         """
         Tells the morgenrutiner.
         """
-        info = \
-"""
-1. Skru av alarmer, åpne gitteret og sjekk maskinrommet
-2. Sjekk av brusautomaten
-3. Sjekk på pauserommet
-4. Sjekk diverse skrivere og fyll på papir dersom nødvendig
-5. Sjekk posthylla vår i 3. etg. (USIT-administrasjonen), merket "Houston"."""
+        infile = open('morgenrutiner.txt', 'r')
+        text = infile.read()
+        infile.close()
+        return text
 
-        return info
+    @botcmd
+    def kveldsrutiner(self, mess, args):
+        """
+        Tells the kveldsrutiner.
+        """
+        infile = open('kveldsrutiner.txt', 'r')
+        text = infile.read()
+        infile.close()
+        return text
 
     def godmorgen(self, mess, args):
         """
