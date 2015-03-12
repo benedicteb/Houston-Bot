@@ -176,16 +176,25 @@ class RTBot(MUCJabberBot):
                         message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                         self.conn.send(message)
 
-            if sendspam:
+            if sendspam and now.hour != end:
                 text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
                 message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                 self.conn.send(message)
                 sendspam = False
-            if sendutskrift:
+            if sendutskrift and now.hour != end:
                 text = "Det har kommet en ny sak i 'houston-utskrift'!"
                 message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                 self.conn.send(message)
                 sendutskrift = False
+
+            if now.minute == 0 and now.hour == start:
+                # Start counting
+                cases_this_morning = self.RT.get_no_all_open('houston')
+            if now.minute == 0 and now.hour == end:
+                # Stop counting and print result
+                cases_at_end = self.RT.get_no_all_open('houston')
+                solved_today = cases_this_morning - cases_at_end
+                text = "%d cases were resolved today in 'houston'" % solved_today
 
             # Do a tick every minute
             for i in range(60):
