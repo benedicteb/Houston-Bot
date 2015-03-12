@@ -120,11 +120,26 @@ class RTBot(MUCJabberBot):
         self.RT = RT
 
     def thread_proc(self):
-        start = 8
-        end = 20
-
         while not self.thread_killed:
             now = datetime.datetime.now()
+
+            # Opening hours
+            if now.isoweekday() == 5:
+                # Friday
+                start = 8
+                end = 18
+            elif now.isoweekday() == 6:
+                # Saturday
+                start = 10
+                end = 16
+            elif now.isoweekday() == 7:
+                # Sunday
+                start = 12
+                end = 16
+            else:
+                # All other days
+                start = 8
+                end = 20
 
             if now.minute == 0 and now.hour <= end and now.hour >= start:
                 for room in self.joined_rooms:
