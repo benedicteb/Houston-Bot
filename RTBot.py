@@ -48,6 +48,9 @@ class MUCJabberBot(JabberBot):
         if re.search('#morgenru', message):
             mess.setBody('morgenrutiner')
             return super(MUCJabberBot, self).callback_message(conn, mess)
+        if re.search('#kveldsru', message):
+            mess.setBody('kveldsrutiner')
+            return super(MUCJabberBot, self).callback_message(conn, mess)
 
         tickets = re.findall(self.direct_message_re, message)
         if len(tickets) != 0:
