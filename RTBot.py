@@ -120,6 +120,12 @@ class RTBot(MUCJabberBot):
         self.RT = RT
 
     def thread_proc(self):
+        spam_upper = 100
+        utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
+
+        sendspam = False
+        sendutskrift = False
+
         while not self.thread_killed:
             now = datetime.datetime.now()
 
@@ -146,9 +152,18 @@ class RTBot(MUCJabberBot):
                     for queue in self.queues:
                         tot = self.RT.get_no_all_open(queue)
                         unowned = self.RT.get_no_unowned_open(queue)
+
+                        if queue == 'spam-suspects' and tot > spam_upper:
+                            sendspam = True
+
+                        if queue == 'houston-utskrift' and tot > utskrift_tot:
+                            sendutskrift = True
+                            utskrift_tot = tot
+
                         text = "'%s' : %d unowned of total %d tickets."\
                                 % (queue, unowned, tot)
                         message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+
                         self.conn.send(message)
 
                     if now.hour == end:
@@ -160,6 +175,17 @@ class RTBot(MUCJabberBot):
                         text = "God morgen!"
                         message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
                         self.conn.send(message)
+
+            if sendspam:
+                text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
+                message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                self.conn.send(message)
+                sendspam = False
+            if sendutskrift:
+                text = "Det har kommet en ny sak i 'houston-utskrift'!"
+                message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                self.conn.send(message)
+                sendutskrift = False
 
             # Do a tick every minute
             for i in range(60):
