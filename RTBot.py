@@ -207,8 +207,12 @@ class RTBot(MUCJabberBot):
                 cases_at_end = self.RT.get_no_all_open('houston')
                 spam_at_end = self.RT.get_no_all_open('spam-suspects')
 
-                solved_today = cases_this_morning - cases_at_end
-                spam_del_today = spam_this_morning - spam_at_end
+                try:
+                    solved_today = cases_this_morning - cases_at_end
+                    spam_del_today = spam_this_morning - spam_at_end
+                except:
+                    solved_today = 0
+                    spam_del_today = 0
 
                 for room in self.joined_rooms:
                     text = "%d cases were resolved today in 'houston'" % solved_today
