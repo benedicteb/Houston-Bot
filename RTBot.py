@@ -85,7 +85,7 @@ class RTBot(MUCJabberBot):
             # List all
             output = ""
             for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
-                output += ': '.join(row) + '\n'
+                output += '%10s: %4d' % (row[0], int(row[1]))
             dbconn.close()
             return output
         else:
