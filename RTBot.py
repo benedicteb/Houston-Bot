@@ -84,7 +84,7 @@ class RTBot(MUCJabberBot):
             # List all
             output = ""
             for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
-                output += str(row) + '\n'
+                output += ': '.join(row) + '\n'
             dbconn.close()
             return output
         else:
@@ -110,6 +110,8 @@ class RTBot(MUCJabberBot):
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
+
+        return wor
 
     @botcmd
     def rtinfo(self, mess, args):
