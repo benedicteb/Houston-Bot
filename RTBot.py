@@ -81,6 +81,7 @@ class RTBot(MUCJabberBot):
         c = dbconn.cursor()
 
         if len(words) == 1:
+            logging.INFO('Listing kohbesok rows.')
             # List all
             output = ""
             for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
@@ -88,9 +89,11 @@ class RTBot(MUCJabberBot):
             dbconn.close()
             return output
         else:
+            logging.INFO('Encountered kohbesok with argument.')
             try:
                 visitors = int(words[-1])
             except:
+                logging.INFO('Bad argument, returning.')
                 dbconn.close()
                 return "I was not able to discern your second word as an int."
 
@@ -107,11 +110,10 @@ class RTBot(MUCJabberBot):
 
             t = ( d, visitors )
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
+            logging.INFO('kohbesok entry inserted.')
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
-
-        return wor
 
     @botcmd
     def rtinfo(self, mess, args):
