@@ -41,7 +41,7 @@ class MUCJabberBot(JabberBot):
         # Hack for not replying to private messages. This is for security
         # reasons, since general RT access is bad.
         message_type = mess.getType()
-        if message_type == 'chat':
+        if message_type == 'chat' and re.search('rtinfo'):
             mess.setBody('private')
             return super(MUCJabberBot, self).callback_message(conn, mess)
 
