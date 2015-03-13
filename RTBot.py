@@ -96,13 +96,13 @@ class RTBot(MUCJabberBot):
         infile.close()
         return text
 
-    def godmorgen(self, mess, args):
+    def godmorgen(self):
         """
         Si god morgen.
         """
         return "God morgen, førstelinja!"
 
-    def godkveld(self, mess, args):
+    def godkveld(self):
         """
         Si god kveld.
         """
@@ -185,11 +185,10 @@ class RTBot(MUCJabberBot):
                             % (queue, unowned, tot)
                     self._post(text)
 
-                if now.hour == end:
-                    self._post('God kveld!')
-
                 if now.hour == start:
-                    self._post('God morgen!')
+                    self._post(self.godmorgen())
+                if now.hour == end:
+                    self._post(self.godkveld())
 
             if sendspam and now.hour != end:
                 text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
