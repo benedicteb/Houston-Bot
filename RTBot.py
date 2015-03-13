@@ -174,6 +174,7 @@ class RTBot(MUCJabberBot):
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
         elif args.command == 'edit':
+            # Update an existing row
             c.execute('SELECT * FROM kohbesok WHERE date=?', t)
             rs = c.fetchone()
             if not rs:
