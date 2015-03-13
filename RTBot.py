@@ -122,6 +122,14 @@ class RTBot(MUCJabberBot):
         self.joined_rooms.append(room)
         super(RTBot, self).muc_join_room(room, *args, **kwargs)
 
+    def _post(self, text):
+        """
+        Takes a string and prints it to all rooms this bot is in.
+        """
+        for room in self.joined_rooms:
+            message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+            self.conn.send(message)
+
     def give_RT_conn(self, RT):
         """
         """
@@ -156,52 +164,42 @@ class RTBot(MUCJabberBot):
                 end = 20
 
             if now.minute == 0 and now.hour <= end and now.hour >= start:
-                for room in self.joined_rooms:
-                    for queue in self.queues:
-                        tot = self.RT.get_no_all_open(queue)
-                        unowned = self.RT.get_no_unowned_open(queue)
+                for queue in self.queues:
+                    tot = self.RT.get_no_all_open(queue)
+                    unowned = self.RT.get_no_unowned_open(queue)
 
-                        if queue == 'spam-suspects' and tot > spam_upper:
-                            sendspam = True
+                    if queue == 'spam-suspects' and tot > spam_upper:
+                        sendspam = True
 
-                        if queue == 'houston-utskrift' and tot > utskrift_tot:
-                            sendutskrift = True
-                            utskrift_tot = tot
+                    if queue == 'houston-utskrift' and tot > utskrift_tot:
+                        sendutskrift = True
+                        utskrift_tot = tot
 
-                        text = "'%s' : %d unowned of total %d tickets."\
-                                % (queue, unowned, tot)
-                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+                    text = "'%s' : %d unowned of total %d tickets."\
+                            % (queue, unowned, tot)
+                    self._post(text)
 
-                        self.conn.send(message)
+                if now.hour == end:
+                    self._post('God kveld!')
 
-                    if now.hour == end:
-                        text = "God kveld!"
-                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                        self.conn.send(message)
-
-                    if now.hour == start:
-                        text = "God morgen!"
-                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                        self.conn.send(message)
+                if now.hour == start:
+                    self._post('God morgen!')
 
             if sendspam and now.hour != end:
-                for room in self.joined_rooms:
-                    text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+                text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
+                self._post(text)
                 sendspam = False
 
             if sendutskrift and now.hour != end:
-                for room in self.joined_rooms:
-                    text = "Det har kommet en ny sak i 'houston-utskrift'!"
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+                text = "Det har kommet en ny sak i 'houston-utskrift'!"
+                self._post(text)
                 sendutskrift = False
 
             if now.minute == 0 and now.hour == start:
                 # Start counting
                 cases_this_morning = self.RT.get_no_all_open('houston')
                 spam_this_morning = self.RT.get_no_all_open('spam-suspects')
+
             if now.minute == 0 and now.hour == end:
                 # Stop counting and print result
                 cases_at_end = self.RT.get_no_all_open('houston')
@@ -215,20 +213,15 @@ class RTBot(MUCJabberBot):
                     spam_del_today = 0
 
                 if solved_today != 0 and spam_del_today != 0:
-                    for room in self.joined_rooms:
-                        text = "%d cases were resolved today in 'houston'" % solved_today
-                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                        self.conn.send(message)
+                    text = "%d cases were resolved today in 'houston'" % solved_today
+                    self._post(text)
 
-                        text = "%d spam were deleted today from 'spam-suspects'" % spam_del_today
-                        message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                        self.conn.send(message)
+                    text = "%d spam were deleted today from 'spam-suspects'" % spam_del_today
+                    self._post(text)
 
             if now.minute == 30 and now.hour == end-1:
-                for room in self.joined_rooms:
-                    text = "Nå kan en begynne å tenke på #kveldsrunden!"
-                    message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
-                    self.conn.send(message)
+                text = "Nå kan en begynne å tenke på #kveldsrunden!"
+                self._post(text)
 
             # Do a tick every minute
             for i in range(60):
