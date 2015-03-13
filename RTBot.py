@@ -5,7 +5,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime
+import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
@@ -60,13 +60,55 @@ class MUCJabberBot(JabberBot):
             return
 
 class RTBot(MUCJabberBot):
-    def __init__(self, username, password, queues):
+    def __init__(self, username, password, queues, db='rtbot.db'):
         """
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
         self.queues = queues
+        self.db = db
+
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        # Create KOH table if not exists
+        c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
+                     (date text, visitors)""")
+
+        dbconn.close()
+
         super(RTBot, self).__init__(username, password, only_direct=True)
+
+    @botcmd
+    def kohbesok(self, mess, args):
+        words = mess.getBody().strip().split()
+
+        dbconn = sqlite.connect(self.db)
+        c = dbconn.cursor()
+
+        if len(words) == 1:
+            # List all
+            output = ""
+            for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+                output += row + '\n'
+            dbconn.close()
+            return output
+        else:
+            visitors = int(words[-1])
+            d = datetime.datetime.strftime('%Y-%m-%d', datetime.datetime.now())
+
+            # Check if already registered this date
+            t = (d,)
+            rs = c.execute('SELECT * FROM kohbesok WHERE date=?', t)
+            if len(rs) != 0:
+                dbconn.close()
+                return "This date is already registered."
+
+            t = ( d, visitors )
+            c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
+            dbconn.close()
+
+            return 'OK, registered %d for today, %s.' % (visitors, d)
 
     @botcmd
     def rtinfo(self, mess, args):
