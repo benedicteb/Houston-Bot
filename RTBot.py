@@ -106,7 +106,7 @@ class RTBot(MUCJabberBot):
         """
         Si god kveld.
         """
-        return "God kveld!"
+        return "God kveld 'a! Nå har dere fortjent litt fri :)"
 
     @botcmd
     def private(self, mess, args):
