@@ -279,6 +279,11 @@ class RTBot(MUCJabberBot):
         """
         self.RT = RT
 
+    def give_emailer(self, emailer):
+        """
+        """
+        self.emailer = emailer
+
     def thread_proc(self):
         spam_upper = 100
         utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
@@ -409,6 +414,10 @@ if __name__ == '__main__':
     # Give the RT communicator class to the bot
     RT = RTCommunicator()
     bot.give_RT_conn(RT)
+
+    email_password = getpass('Email password for %s: ' % RT.user)
+    addr = raw_input('Email address: ')
+    bot.give_emailer(Emailer(RT.user, email_password, addr))
 
     # Bot nickname
     nickname = 'Anna'
