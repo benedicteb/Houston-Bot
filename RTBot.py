@@ -24,7 +24,7 @@ class Emailer(object):
         self.username = username
         self.password = password
         self.addr = addr
-        self.server = SMTP_SSL(self.smtp, self.port)
+        self.server = smtplib.SMTP_SSL(self.smtp, self.port)
 
     def send_email(self, to, subject, text, attachment=False):
         """
@@ -37,12 +37,6 @@ class Emailer(object):
         msg['From'] = self.addr
         body_text = MIMEText(text, 'plain', 'utf-8')
         msg.attach(body_text)
-
-        if attachment:
-            with open(attachment, 'rb') as infile:
-                msg.attach(MIMEApplication( infile.read(),
-                    Content_Disposition='attachment; filename="%s"'\
-                    % os.path.basename(infile)))
 
         self.server.sendmail(self.addr, to, msg.as_string())
 
