@@ -313,6 +313,10 @@ class RTBot(MUCJabberBot):
                 text = "Nå kan en begynne å tenke på #kveldsrunden!"
                 self._post(text)
 
+            if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
+                # If visitors not registered send email to boss.
+                pass
+
             # Do a tick every minute
             for i in range(60):
                 time.sleep(1)
