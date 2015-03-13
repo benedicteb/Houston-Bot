@@ -98,8 +98,10 @@ class RTBot(MUCJabberBot):
 
             # Check if already registered this date
             t = (d,)
-            rs = c.execute('SELECT * FROM kohbesok WHERE date=?', t)
-            if len(rs) != 0:
+            counter = 0
+            for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
+                counter += 1
+            if counter != 0:
                 dbconn.close()
                 return "This date is already registered."
 
