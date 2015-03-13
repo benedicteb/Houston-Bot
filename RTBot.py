@@ -171,12 +171,13 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
             logging.info('kohbesok entry inserted.')
+
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
         elif args.command == 'edit':
             # Update an existing row
-            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
+            c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ))
             rs = c.fetchone()
             if not rs:
                 dbconn.close()
@@ -184,9 +185,13 @@ class RTBot(MUCJabberBot):
 
             old_value = rs[1]
 
-            t = (d,)
             c.execute('UPDATE kohbesok SET visitors=? where date ="?"',
                     (args.visitors, args.date))
+            dbconn.commit()
+            logging.info('kohbesok entry updated.')
+
+            dbconn.close()
+
             return "OK, updated data for %s. Changed %d to %d."\
                     % (args.date, old_value, args.visitors)
 
