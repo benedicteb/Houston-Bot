@@ -76,7 +76,7 @@ class RTBot(MUCJabberBot):
     def kohbesok(self, mess, args):
         words = mess.getBody().strip().split()
 
-        dbconn = sqlite.connect(self.db)
+        dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
         if len(words) == 1:
