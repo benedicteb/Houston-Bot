@@ -81,7 +81,7 @@ class RTBot(MUCJabberBot):
         c = dbconn.cursor()
 
         if len(words) == 1:
-            logging.INFO('Listing kohbesok rows.')
+            logging.info('Listing kohbesok rows.')
             # List all
             output = ""
             for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
@@ -89,7 +89,7 @@ class RTBot(MUCJabberBot):
             dbconn.close()
             return output
         else:
-            logging.INFO('Encountered kohbesok with argument.')
+            logging.info('Encountered kohbesok with argument.')
             try:
                 visitors = int(words[-1])
             except:
@@ -110,7 +110,7 @@ class RTBot(MUCJabberBot):
 
             t = ( d, visitors )
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
-            logging.INFO('kohbesok entry inserted.')
+            logging.info('kohbesok entry inserted.')
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
