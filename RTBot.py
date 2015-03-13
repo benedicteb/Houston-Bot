@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib
+import argparse, csv, smtplib, feedparser
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
@@ -24,6 +24,7 @@ det ble glemt å registrere antall besøkende med meg i dag..
 
 hilsen Anna
 """
+_DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
 
 """CLASSES"""
 class Emailer(object):
@@ -115,38 +116,55 @@ class RTBot(MUCJabberBot):
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
+    def listkoh(self, mess, args):
+        """
+        Lists last 10 entries in kos table.
+        """
+        now = datetime.datetime.now()
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        output = ""
+        counter = 0
+        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+            output += '%10s: %4d' % (row[0], int(row[1]))
+            counter += 1
+
+            if counter == 10:
+                break
+
+        dbconn.close()
+        return output
+
+    @botcmd
     def kohbesok(self, mess, args):
+        """
+        Can be used to register visitor data from KOH and update it.
+        """
         words = mess.getBody().strip().split()
+        d = datetime.datetime.strftime(now, '%Y-%m-%d')
+
+        parser = argparse.ArgumentParser(description='kohbesok command parser')
+        parser.add_argument('command', choices=['register', 'edit'],
+                help='What to do.')
+        parser.add_argument('visitors', type=int, help='Number of visitors.')
+        parser.add_argument('--date', help='Can override todays date.',
+                default=d)
+
+        try:
+            args = parser.parse_args(words[1:])
+        except:
+            return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
         now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        if len(words) == 1:
-            logging.info('Listing kohbesok rows.')
-            # List all
-            output = ""
-            for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
-                output += '%10s: %4d' % (row[0], int(row[1]))
-            dbconn.close()
-            return output
-        else:
-            logging.info('Encountered kohbesok with argument.')
-            try:
-                visitors = int(words[-1])
-            except:
-                logging.INFO('Bad argument, returning.')
-                dbconn.close()
-                return "I was not able to discern your second word as an int."
-
-            d = datetime.datetime.strftime(now, '%Y-%m-%d')
-
+        if args.command == 'register':
             # Check if already registered this date
             t = (d,)
-            counter = 0
-            for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
-                counter += 1
-            if counter != 0:
+            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
+            if c.fetchone():
                 dbconn.close()
                 return "This date is already registered."
 
@@ -154,9 +172,35 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
             logging.info('kohbesok entry inserted.')
+
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
+        elif args.command == 'edit':
+            logging.info('Edit kohbesok request from %s.' % mess.getFrom())
+            if mess.getFrom() not in ['benedebr@chat.uio.no',
+                    'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
+                return "You are not an op."
+
+            # Update an existing row
+            c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ))
+            rs = c.fetchone()
+            if not rs:
+                dbconn.close()
+                return "There is no data on this date yet."
+
+            old_value = rs[1]
+
+            c.execute('UPDATE kohbesok SET visitors=? where date ="?"',
+                    (args.visitors, args.date))
+            dbconn.commit()
+            logging.info('kohbesok entry updated.')
+
+            dbconn.close()
+
+            return "OK, updated data for %s. Changed %d to %d."\
+                    % (args.date, old_value, args.visitors)
+
 
     @botcmd
     def rtinfo(self, mess, args):
@@ -297,6 +341,12 @@ class RTBot(MUCJabberBot):
         sendspam = False
         sendutskrift = False
 
+        # At startup, save last driftsmelding
+        feed = feedparser.parse(_DRIFT_URL)
+        sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+        sorted_entries.reverse()
+        last_drift_title = sorted_entries[0]['title']
+
         while not self.thread_killed:
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
@@ -368,15 +418,26 @@ class RTBot(MUCJabberBot):
                 # Count if there is a registration today
                 d = datetime.datetime.strftime(now, '%Y-%m-%d')
                 t = (d,)
-                counter = 0
-                for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
-                    counter += 1
+                c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ) )
+                rs = c.fetchone()
+
+                if not rs:
+                    # No data registered today, send notification
+                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
 
                 dbconn.close()
 
-                if counter == 0:
-                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
-                            _FORGOTTEN_KOH)
+            # After this processes taking time can be put
+            feed = feedparser.parse(_DRIFT_URL)
+            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+            sorted_entries.reverse()
+
+            newest_drift_title = sorted_entries[0]['title']
+
+            if newest_drift_title != last_drift_title:
+                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+                last_drift_title = sorted_entries[0]['title']
 
             # Do a tick every minute
             for i in range(60):
