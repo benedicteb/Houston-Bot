@@ -76,6 +76,7 @@ class RTBot(MUCJabberBot):
     def kohbesok(self, mess, args):
         words = mess.getBody().strip().split()
 
+        now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
@@ -87,8 +88,13 @@ class RTBot(MUCJabberBot):
             dbconn.close()
             return output
         else:
-            visitors = int(words[-1])
-            d = datetime.datetime.strftime('%Y-%m-%d', datetime.datetime.now())
+            try:
+                visitors = int(words[-1])
+            except:
+                dbconn.close()
+                return "I was not able to discern your second word as an int."
+
+            d = datetime.datetime.strftime(now, '%Y-%m-%d')
 
             # Check if already registered this date
             t = (d,)
