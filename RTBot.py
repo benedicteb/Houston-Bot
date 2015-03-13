@@ -237,7 +237,7 @@ class RTBot(MUCJabberBot):
 if __name__ == '__main__':
     # Just for connection info ++
     import logging
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     # Parse commandline
     parser = argparse.ArgumentParser()
