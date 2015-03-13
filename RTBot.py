@@ -66,7 +66,7 @@ class RTBot(MUCJabberBot):
 
         # Create KOH table if not exists
         c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
-                     (date text, visitors)""")
+                     (date text, visitors real)""")
 
         dbconn.close()
 
