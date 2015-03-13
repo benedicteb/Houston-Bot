@@ -110,6 +110,7 @@ class RTBot(MUCJabberBot):
 
             t = ( d, visitors )
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
+            dbconn.commit()
             logging.info('kohbesok entry inserted.')
             dbconn.close()
 
