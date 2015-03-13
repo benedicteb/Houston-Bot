@@ -358,6 +358,9 @@ class RTBot(MUCJabberBot):
                 # If visitors not registered send email to boss.
                 pass
 
+            if now.minute == 0:
+                self.emailer.send_email('b@brkn.io', 'test from rt bot', 'haha dette er en test.')
+
             # Do a tick every minute
             for i in range(60):
                 time.sleep(1)
