@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib
+import argparse, csv, smtplib, feedparser
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
@@ -24,6 +24,7 @@ det ble glemt å registrere antall besøkende med meg i dag..
 
 hilsen Anna
 """
+_DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
 
 """CLASSES"""
 class Emailer(object):
@@ -334,6 +335,12 @@ class RTBot(MUCJabberBot):
         sendspam = False
         sendutskrift = False
 
+        # At startup, save last driftsmelding
+        feed = feedparser.parse(_DRIFT_URL)
+        sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+        sorted_entries.reverse()
+        last_drift_title = sorted_entries[0]['title']
+
         while not self.thread_killed:
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
@@ -414,6 +421,17 @@ class RTBot(MUCJabberBot):
                             _FORGOTTEN_KOH)
 
                 dbconn.close()
+
+            # After this processes taking time can be put
+            feed = feedparser.parse(_DRIFT_URL)
+            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+            sorted_entries.reverse()
+
+            newest_drift_title = sorted_entries[0]['title']
+
+            if newest_drift_title != last_drift_title:
+                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+                last_drift_title = sorted_entries[0]['title']
 
             # Do a tick every minute
             for i in range(60):
