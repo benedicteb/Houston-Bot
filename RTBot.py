@@ -14,6 +14,17 @@ from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
 
+"""CONSTANTS"""
+_FORGOTTEN_KOH =\
+"""
+Hei,
+
+det ble glemt å registrere antall besøkende med meg i dag..
+
+
+hilsen Anna
+"""
+
 """CLASSES"""
 class Emailer(object):
     def __init__(self, username, password, addr):
@@ -349,8 +360,22 @@ class RTBot(MUCJabberBot):
                 self._post(text)
 
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
-                # If visitors not registered send email to boss.
-                pass
+                # Mail boss if KOH visits not registered
+                dbconn = sqlite3.connect(self.db)
+                c = dbconn.cursor()
+
+                # Count if there is a registration today
+                d = datetime.datetime.strftime(now, '%Y-%m-%d')
+                t = (d,)
+                counter = 0
+                for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
+                    counter += 1
+
+                dbconn.close()
+
+                if counter == 0:
+                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
 
             # Do a tick every minute
             for i in range(60):
