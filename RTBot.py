@@ -154,7 +154,7 @@ class RTBot(MUCJabberBot):
         try:
             args = parser.parse_args(words[1:])
         except:
-            return 'Bad command.'
+            return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
         now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
