@@ -177,6 +177,10 @@ class RTBot(MUCJabberBot):
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
         elif args.command == 'edit':
+            if mess.getFrom() not in ['benedebr@chat.uio.no',
+                    'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
+                return "You are not an op."
+
             # Update an existing row
             c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ))
             rs = c.fetchone()
