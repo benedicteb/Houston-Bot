@@ -6,6 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
+import argparse, csv
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
@@ -155,6 +156,39 @@ class RTBot(MUCJabberBot):
         Si god kveld.
         """
         return "God kveld 'a! Nå har dere fortjent litt fri :)"
+
+    @botcmd
+    def exportkoh(self, mess, args):
+        """
+        Exports koh data.
+        """
+        parser = argparse.ArgumentParser(description='command parser')
+        parser.add_argument('start', 'From-date.')
+        parser.add_argument('end', 'To-date.')
+        parser.add_argument('email', 'E-mail to send file to.')
+
+        try:
+            args = parser.parse_args(mess.getBody().strip().split())
+        except:
+            return 'Usage: exportkoh start-date(dd-mm-YYYY) end-date email'
+
+        filename = 'koh.csv'
+
+        if os.path.isfile(filename):
+            os.remove(filename)
+
+        csvfile = open('koh.csv', 'wb')
+        writer = csv.writer(csvfile, delimiter=' ',
+                quotechar='|', quoting=csv.QUOTE_MINIMAL)
+
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        writer.writerow(['Date', 'Visitors'])
+        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+            writer.writerow([row[0], row[1]])
+
+        return 'File written!'
 
     @botcmd
     def private(self, mess, args):
