@@ -163,12 +163,12 @@ class RTBot(MUCJabberBot):
         Exports koh data.
         """
         parser = argparse.ArgumentParser(description='command parser')
-        parser.add_argument('start', 'From-date.')
-        parser.add_argument('end', 'To-date.')
-        parser.add_argument('email', 'E-mail to send file to.')
+        parser.add_argument('start', help='From-date.')
+        parser.add_argument('end', help='To-date.')
+        parser.add_argument('email', help='E-mail to send file to.')
 
         try:
-            args = parser.parse_args(mess.getBody().strip().split())
+            args = parser.parse_args(mess.getBody().strip().split()[1:])
         except:
             return 'Usage: exportkoh start-date(YYYY-mm-dd) end-date email'
 
@@ -188,7 +188,8 @@ class RTBot(MUCJabberBot):
             args.end))
 
         writer.writerow(['Date', 'Visitors'])
-        for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN %s AND %s ORDER BY date' % (args.start, args.end)):
+        for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
+            logging.info(row)
             writer.writerow([row[0], row[1]])
 
         return 'File written!'
