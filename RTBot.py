@@ -6,12 +6,48 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv
+import argparse, csv, smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from email.mime.text import MIMEText
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from pyRT.src.RT import RTCommunicator
 
 """CLASSES"""
+class Emailer(object):
+    def __init__(self, username, password, addr):
+        """
+        """
+        self.smtp = 'smtp.uio.no'
+        self.port = 465
+        self.username = username
+        self.password = password
+        self.addr = addr
+        self.server = SMTP_SSL(self.smtp, self.port)
+
+    def send_email(self, to, subject, text, attachment=False):
+        """
+        """
+        self.server.login(self.username, self.password)
+
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['To'] = to
+        msg['From'] = self.addr
+        body_text = MIMEText(text, 'plain', 'utf-8')
+        msg.attach(body_text)
+
+        if attachment:
+            with open(attachment, 'rb') as infile:
+                msg.attach(MIMEApplication( infile.read(),
+                    Content_Disposition='attachment; filename="%s"'\
+                    % os.path.basename(infile)))
+
+        self.server.sendmail(self.addr, to, msg.as_string())
+
+        self.server.quit()
+
 class MUCJabberBot(JabberBot):
     """
     Middle-person class for adding some MUC compatability to the Jabberbot.
