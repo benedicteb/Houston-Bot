@@ -170,7 +170,7 @@ class RTBot(MUCJabberBot):
         try:
             args = parser.parse_args(mess.getBody().strip().split())
         except:
-            return 'Usage: exportkoh start-date(dd-mm-YYYY) end-date email'
+            return 'Usage: exportkoh start-date(YYYY-mm-dd) end-date email'
 
         filename = 'koh.csv'
 
@@ -184,8 +184,11 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
+        logging.info('Finding all kohbesok between %s and %s' % (args.start,
+            args.end))
+
         writer.writerow(['Date', 'Visitors'])
-        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+        for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN %s AND %s ORDER BY date' % (args.start, args.end)):
             writer.writerow([row[0], row[1]])
 
         return 'File written!'
