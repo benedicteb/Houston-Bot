@@ -142,6 +142,7 @@ class RTBot(MUCJabberBot):
         Can be used to register visitor data from KOH and update it.
         """
         words = mess.getBody().strip().split()
+        now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
@@ -156,7 +157,6 @@ class RTBot(MUCJabberBot):
         except:
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
-        now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
