@@ -38,26 +38,19 @@ class MUCJabberBot(JabberBot):
         if not message:
             return
 
-        # Hack for not replying to private messages. This is for security
-        # reasons, since general RT access is bad.
         message_type = mess.getType()
+        tickets = re.findall(self.direct_message_re, message)
+
         if message_type == 'chat' and re.search('rtinfo', mess.getBody()):
             mess.setBody('private')
-            return super(MUCJabberBot, self).callback_message(conn, mess)
-
         if re.search('#morgenru', message):
             mess.setBody('morgenrutiner')
-            return super(MUCJabberBot, self).callback_message(conn, mess)
         if re.search('#kveldsru', message):
             mess.setBody('kveldsrutiner')
-            return super(MUCJabberBot, self).callback_message(conn, mess)
-
-        tickets = re.findall(self.direct_message_re, message)
         if len(tickets) != 0:
             mess.setBody('rtinfo %s' % tickets[0])
-            return super(MUCJabberBot, self).callback_message(conn, mess)
-        else:
-            return
+
+        return super(MUCJabberBot, self).callback_message(conn, mess)
 
 class RTBot(MUCJabberBot):
     def __init__(self, username, password, queues, db='rtbot.db'):
