@@ -274,6 +274,8 @@ class RTBot(MUCJabberBot):
             # Do a tick every minute
             for i in range(60):
                 time.sleep(1)
+                if self.thread_killed:
+                    return
 
 if __name__ == '__main__':
     # Just for connection info ++
