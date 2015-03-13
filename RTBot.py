@@ -405,15 +405,15 @@ class RTBot(MUCJabberBot):
                 # Count if there is a registration today
                 d = datetime.datetime.strftime(now, '%Y-%m-%d')
                 t = (d,)
-                counter = 0
-                for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
-                    counter += 1
+                c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ) )
+                rs = c.fetchone()
 
-                dbconn.close()
-
-                if counter == 0:
+                if not rs:
+                    # No data registered today, send notification
                     self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
                             _FORGOTTEN_KOH)
+
+                dbconn.close()
 
             # Do a tick every minute
             for i in range(60):
