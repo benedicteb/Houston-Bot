@@ -138,6 +138,7 @@ class RTBot(MUCJabberBot):
     @botcmd
     def kohbesok(self, mess, args):
         """
+        Can be used to register visitor data from KOH and update it.
         """
         words = mess.getBody().strip().split()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
