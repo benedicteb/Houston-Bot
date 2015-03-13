@@ -115,38 +115,54 @@ class RTBot(MUCJabberBot):
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
+    def listkoh(self, mess, args):
+        """
+        Lists last 10 entries in kos table.
+        """
+        now = datetime.datetime.now()
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        output = ""
+        counter = 0
+        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+            output += '%10s: %4d' % (row[0], int(row[1]))
+            counter += 1
+
+            if counter == 10:
+                break
+
+        dbconn.close()
+        return output
+
+    @botcmd
     def kohbesok(self, mess, args):
+        """
+        """
         words = mess.getBody().strip().split()
+        d = datetime.datetime.strftime(now, '%Y-%m-%d')
+
+        parser = argparse.ArgumentParser(description='kohbesok command parser')
+        parser.add_argument('command', choices=['register', 'edit'],
+                help='What to do.')
+        parser.add_argument('visitors', type=int, help='Number of visitors.')
+        parser.add_argument('--date', help='Can override todays date.',
+                default=d)
+
+        try:
+            args = parser.parse_args(words[1:])
+        except:
+            return 'Bad command.'
 
         now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        if len(words) == 1:
-            logging.info('Listing kohbesok rows.')
-            # List all
-            output = ""
-            for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
-                output += '%10s: %4d' % (row[0], int(row[1]))
-            dbconn.close()
-            return output
-        else:
-            logging.info('Encountered kohbesok with argument.')
-            try:
-                visitors = int(words[-1])
-            except:
-                logging.INFO('Bad argument, returning.')
-                dbconn.close()
-                return "I was not able to discern your second word as an int."
-
-            d = datetime.datetime.strftime(now, '%Y-%m-%d')
-
+        if args.command == 'register':
             # Check if already registered this date
             t = (d,)
-            counter = 0
-            for row in c.execute('SELECT * FROM kohbesok WHERE date=?', t):
-                counter += 1
-            if counter != 0:
+            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
+            if c.fetchone():
                 dbconn.close()
                 return "This date is already registered."
 
@@ -157,6 +173,21 @@ class RTBot(MUCJabberBot):
             dbconn.close()
 
             return 'OK, registered %d for today, %s.' % (visitors, d)
+        elif args.command == 'edit':
+            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
+            rs = c.fetchone()
+            if not rs:
+                dbconn.close()
+                return "There is no data on this date yet."
+
+            old_value = rs[1]
+
+            t = (d,)
+            c.execute('UPDATE kohbesok SET visitors=? where date ="?"',
+                    (args.visitors, args.date))
+            return "OK, updated data for %s. Changed %d to %d."\
+                    % (args.date, old_value, args.visitors)
+
 
     @botcmd
     def rtinfo(self, mess, args):
