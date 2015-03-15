@@ -407,7 +407,7 @@ class RTBot(MUCJabberBot):
                     self._post(text)
 
             if now.minute == 30 and now.hour == end-1:
-                text = "Nå kan en begynne å tenke på #kveldsrunden!"
+                text = "Nå kan en begynne å tenke på kveldsrunden!"
                 self._post(text)
 
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
