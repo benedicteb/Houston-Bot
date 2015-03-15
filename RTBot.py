@@ -385,25 +385,18 @@ class RTBot(MUCJabberBot):
             if now.minute == 0 and now.hour == start:
                 # Start counting
                 cases_this_morning = self.RT.get_no_all_open('houston')
-                spam_this_morning = self.RT.get_no_all_open('spam-suspects')
 
             if now.minute == 0 and now.hour == end:
                 # Stop counting and print result
                 cases_at_end = self.RT.get_no_all_open('houston')
-                spam_at_end = self.RT.get_no_all_open('spam-suspects')
 
                 try:
-                    solved_today = cases_this_morning - cases_at_end
-                    spam_del_today = spam_this_morning - spam_at_end
+                    solved_today = cases_at_end - cases_this_morning
                 except:
                     solved_today = 0
-                    spam_del_today = 0
 
                 if solved_today != 0 and spam_del_today != 0:
-                    text = "%d cases were resolved today in 'houston'" % solved_today
-                    self._post(text)
-
-                    text = "%d spam were deleted today from 'spam-suspects'" % spam_del_today
+                    text = "Total change today for queue 'houston': %d (%d --> %d)" % (solved_today, cases_this_morning, cases_at_end)
                     self._post(text)
 
             if now.minute == 30 and now.hour == end-1:
