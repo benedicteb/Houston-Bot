@@ -60,7 +60,7 @@ class Emailer(object):
         body_text = MIMEText(text, 'plain', 'utf-8')
         msg.attach(body_text)
 
-        if attachment:
+        if infile:
             ctype, encoding = mimetypes.guess_type(infile)
             if ctype is None or encoding is not None:
                 ctype = "application/octet-stream"
@@ -85,7 +85,7 @@ class Emailer(object):
                 attachment.set_payload(fp.read())
                 fp.close()
                 encoders.encode_base64(attachment)
-            attachment.add_header("Content-Disposition", "attachment", filename=fileToSend)
+            attachment.add_header("Content-Disposition", "attachment", filename=infile)
             msg.attach(attachment)
 
         self.server.sendmail(self.addr, to, msg.as_string())
@@ -319,7 +319,7 @@ class RTBot(MUCJabberBot):
 
         # Email it to asker
         self.emailer.send_email(args.email, 'Eksporterte KOH-data',
-            _EXPORT_KOH, attachment=filename)
+            _EXPORT_KOH, infile=filename)
 
         return "File written and sent to '%s'!" % args.email
 
