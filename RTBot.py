@@ -207,14 +207,14 @@ class RTBot(MUCJabberBot):
                 dbconn.close()
                 return "This date is already registered."
 
-            t = ( d, visitors )
+            t = ( d, args.visitors )
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
             logging.info('kohbesok entry inserted.')
 
             dbconn.close()
 
-            return 'OK, registered %d for today, %s.' % (visitors, d)
+            return 'OK, registered %d for today, %s.' % (args.visitors, d)
         elif args.command == 'edit':
             logging.info('Edit kohbesok request from %s.' % mess.getFrom())
             if mess.getFrom() not in ['benedebr@chat.uio.no',
