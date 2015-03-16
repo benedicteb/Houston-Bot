@@ -317,7 +317,7 @@ class RTBot(MUCJabberBot):
 
         # Email it to asker
         self.emailer.send_email(args.email, 'Eksporterte KOH-data',
-            _EXPORT_KOH, attachment=filename)
+            _EXPORT_KOH, infile=filename)
 
         return "File written and sent to '%s'!" % args.email
 
