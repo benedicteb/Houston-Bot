@@ -315,6 +315,8 @@ class RTBot(MUCJabberBot):
             logging.info(row)
             writer.writerow([row[0], row[1]])
 
+        csvfile.close()
+
         # Email it to asker
         self.emailer.send_email(args.email, 'Eksporterte KOH-data',
             _EXPORT_KOH, attachment=filename)
