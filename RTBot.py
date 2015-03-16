@@ -319,7 +319,7 @@ class RTBot(MUCJabberBot):
         self.emailer.send_email(args.email, 'Eksporterte KOH-data',
             _EXPORT_KOH, attachment=filename)
 
-        return 'File written!'
+        return "File written and sent to '%s'!" % args.email
 
     @botcmd
     def private(self, mess, args):
