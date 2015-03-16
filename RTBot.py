@@ -60,7 +60,7 @@ class Emailer(object):
         body_text = MIMEText(text, 'plain', 'utf-8')
         msg.attach(body_text)
 
-        if attachment:
+        if infile:
             ctype, encoding = mimetypes.guess_type(infile)
             if ctype is None or encoding is not None:
                 ctype = "application/octet-stream"
