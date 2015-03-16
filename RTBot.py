@@ -38,14 +38,27 @@ _DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
 
 """CLASSES"""
 class Emailer(object):
-    def __init__(self, username, password, addr):
+    def __init__(self, username=False, password=False, addr=False):
         """
         """
         self.smtp = 'smtp.uio.no'
         self.port = 465
-        self.username = username
-        self.password = password
-        self.addr = addr
+
+        if not username:
+            username = raw_input('Username (UiO-mail): ')
+        if not password:
+            password = getpass('Password (UiO-mail): ')
+        if not addr:
+            addr = raw_input('UiO-mail address: ')
+
+        self.username, self.password, self.addr = username, password, addr
+
+        try:
+            server = smtplib.SMTP_SSL(self.smtp, self.port)
+            server.login(self.username, self.password)
+        except:
+            print 'Wrong e-mailing credentials. Quitting.'
+            sys.exit(0)
 
     def send_email(self, to, subject, text, infile=False):
         """
@@ -532,13 +545,11 @@ if __name__ == '__main__':
     # Initiate bot
     bot = RTBot(chat_username, chat_password, queue)
 
-    # Give the RT communicator class to the bot
-    RT = RTCommunicator()
-    bot.give_RT_conn(RT)
+    # Give RT communicator
+    bot.give_RT_conn(RTCommunicator())
 
-    email_password = getpass('Email password for %s: ' % RT.user)
-    addr = raw_input('Email address: ')
-    bot.give_emailer(Emailer(RT.user, email_password, addr))
+    # Give Emailer
+    bot.give_emailer(Emailer())
 
     # Bot nickname
     nickname = 'Anna'
