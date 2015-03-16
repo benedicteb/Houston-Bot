@@ -25,6 +25,15 @@ det ble glemt å registrere antall besøkende med meg i dag..
 
 hilsen Anna
 """
+_EXPORT_KOH = \
+"""
+Hei,
+
+her er filen med eksporterte KOH-data.
+
+
+hilsen Anna
+"""
 _DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
 
 """CLASSES"""
@@ -291,7 +300,7 @@ class RTBot(MUCJabberBot):
         if os.path.isfile(filename):
             os.remove(filename)
 
-        csvfile = open('koh.csv', 'wb')
+        csvfile = open(filename, 'wb')
         writer = csv.writer(csvfile, delimiter=' ',
                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
@@ -305,6 +314,10 @@ class RTBot(MUCJabberBot):
         for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
             logging.info(row)
             writer.writerow([row[0], row[1]])
+
+        # Email it to asker
+        self.emailer.send_email(args.email, 'Eksporterte KOH-data',
+            _EXPORT_KOH, attachment=filename)
 
         return 'File written!'
 
