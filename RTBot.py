@@ -148,13 +148,12 @@ class MUCJabberBot(JabberBot):
         return super(MUCJabberBot, self).callback_message(conn, mess)
 
 class RTBot(MUCJabberBot):
-    def __init__(self, username, password, queues, db='rtbot.db'):
+    def __init__(self, username, password, queues, admin, db='rtbot.db'):
         """
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
-        self.queues = queues
-        self.db = db
+        self.queues, self.db, self.admin = queues, db, admin
 
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
@@ -162,10 +161,70 @@ class RTBot(MUCJabberBot):
         # Create KOH table if not exists
         c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
                      (date text, visitors integer)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS ops
+                     (jid text)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS users
+                     (jid text)""")
 
         dbconn.close()
 
         super(RTBot, self).__init__(username, password, only_direct=True)
+
+    @botcmd
+    def useradmin(self, mess, args):
+        """
+        Can be used to set user permissions and add users.
+        """
+        words = mess.getBody().strip().split()
+
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        chatter, resource = mess.getFrom().split('/')
+
+        c.execute('SELECT * FROM ops')
+        ops = c.fetchall()
+
+        if chatter not in ops or chatter != self.admin:
+            dbconn.close()
+            return 'You are not an op nor an admin.'
+
+        parser = argparse.ArgumentParser(description='useradd command parser')
+        parser.add_argument('type', choices=['op', 'user'],
+                help='What kind of permission to give.')
+        parser.add_argument('jid', help='Username of person to add.')
+
+        try:
+            args = parser.parse_args(words[1:])
+        except:
+            dbconn.close()
+            return 'Usage: useradd op/user username@domain'
+
+        c.execute('SELECT * FROM users')
+        users = c.fetchall()
+
+        if args.type == op:
+            if args.jid in ops:
+                dbconn.close()
+                return '%s is already an op.' % args.jid
+
+            t = ( args.jid )
+            c.execute('INSERT INTO ops VALUES (?)', t)
+            c.commit()
+
+            dbconn.close()
+            return 'OK, made %s an op.' % args.jid
+
+        if args.type == user:
+            if args.jid in users:
+                dbconn.close()
+                return '%s is already a user.' % args.jid
+
+            t = ( args.jid )
+            c.execute('INSERT INTO users VALUES (?)', t)
+            c.commit()
+
+            dbconn.close()
+            return 'OK, made %s a user.' % args.jid
 
     @botcmd
     def listkoh(self, mess, args):
@@ -518,6 +577,7 @@ if __name__ == '__main__':
     # Gather chat credentials
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
+    chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
 
     # Write queues file
     filename = 'queues.txt'
@@ -543,7 +603,7 @@ if __name__ == '__main__':
             infile.close()
 
     # Initiate bot
-    bot = RTBot(chat_username, chat_password, queue)
+    bot = RTBot(chat_username, chat_password, queue, admin=chat_admin)
 
     # Give RT communicator
     bot.give_RT_conn(RTCommunicator())
