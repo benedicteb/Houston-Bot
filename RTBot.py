@@ -112,9 +112,6 @@ class MUCJabberBot(JabberBot):
         # create a regex to check if a message is a direct message
         self.direct_message_re = r'#(\d+)'
 
-        # Re for searching for new package command
-        self.new_package = _NEW_PACKAGE_COMMAND
-
         # Message queue needed for broadcasting
         self.thread_killed = False
 
