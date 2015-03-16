@@ -46,11 +46,11 @@ class Emailer(object):
         self.username = username
         self.password = password
         self.addr = addr
-        self.server = smtplib.SMTP_SSL(self.smtp, self.port)
 
     def send_email(self, to, subject, text, infile=False):
         """
         """
+        self.server = smtplib.SMTP_SSL(self.smtp, self.port)
         self.server.login(self.username, self.password)
 
         msg = MIMEMultipart()
@@ -91,6 +91,7 @@ class Emailer(object):
         self.server.sendmail(self.addr, to, msg.as_string())
 
         self.server.quit()
+        self.server = None
 
 class MUCJabberBot(JabberBot):
     """
