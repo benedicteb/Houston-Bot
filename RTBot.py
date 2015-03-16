@@ -342,7 +342,7 @@ class RTBot(MUCJabberBot):
         Takes a string and prints it to all rooms this bot is in.
         """
         for room in self.joined_rooms:
-            message = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(room, text)
+            message = "<message to='%s' type='groupchat'><body>%s</body></message>" % (room, text)
             self.conn.send(message)
 
     def _opening_hours(self, now):
