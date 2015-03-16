@@ -85,7 +85,7 @@ class Emailer(object):
                 attachment.set_payload(fp.read())
                 fp.close()
                 encoders.encode_base64(attachment)
-            attachment.add_header("Content-Disposition", "attachment", filename=fileToSend)
+            attachment.add_header("Content-Disposition", "attachment", filename=infile)
             msg.attach(attachment)
 
         self.server.sendmail(self.addr, to, msg.as_string())
