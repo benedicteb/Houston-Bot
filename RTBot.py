@@ -252,7 +252,7 @@ class RTBot(MUCJabberBot):
 
             old_value = rs[1]
 
-            c.execute('UPDATE kohbesok SET visitors=? where date ="?"',
+            c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
             logging.info('kohbesok entry updated.')
