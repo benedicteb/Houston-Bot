@@ -209,6 +209,7 @@ class RTBot(MUCJabberBot):
 
         try:
             args = parser.parse_args(words[1:])
+            datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
