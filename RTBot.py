@@ -244,7 +244,7 @@ class RTBot(MUCJabberBot):
                 return "You are not an op."
 
             # Update an existing row
-            c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ))
+            c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
             rs = c.fetchone()
             if not rs:
                 dbconn.close()
