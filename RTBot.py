@@ -201,20 +201,23 @@ class RTBot(MUCJabberBot):
 
         if args.command == 'register':
             # Check if already registered this date
-            t = (d,)
+            t = ( args.date, )
             c.execute('SELECT * FROM kohbesok WHERE date=?', t)
             if c.fetchone():
                 dbconn.close()
                 return "This date is already registered."
 
-            t = ( d, args.visitors )
+            t = ( args.date, args.visitors )
+
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
-            logging.info('kohbesok entry inserted.')
+
+            logging.info('Inserted %d koh-visitors for %s.' \
+                    % (args.visitors, args.date))
 
             dbconn.close()
 
-            return 'OK, registered %d for today, %s.' % (args.visitors, d)
+            return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
             logging.info('Edit kohbesok request from %s.' % mess.getFrom())
 
