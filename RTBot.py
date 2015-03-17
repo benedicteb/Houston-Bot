@@ -250,7 +250,23 @@ class RTBot(MUCJabberBot):
     @botcmd
     def kohbesok(self, mess, args):
         """
-        Can be used to register visitor data from KOH and update it.
+        This command is used for editing entries in the KOH-visitors database.
+        You can 'register' and 'edit'. Usually the commands follow the syntax:
+
+        kohbesok register number
+
+        This assumes you want to register for todays date. If you specify with
+        date:
+
+        kohbesok register number --date 2015-01-01
+
+        The number will be registered for the date you specify.
+
+        Editing is done like so:
+
+        kohbesok edit newnumber --date YYYY-mm-dd
+
+        Here the date will also be assumed to be today if you don't specify it.
         """
         words = mess.getBody().strip().split()
         now = datetime.datetime.now()
@@ -265,6 +281,7 @@ class RTBot(MUCJabberBot):
 
         try:
             args = parser.parse_args(words[1:])
+            datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
@@ -273,30 +290,33 @@ class RTBot(MUCJabberBot):
 
         if args.command == 'register':
             # Check if already registered this date
-            t = (d,)
+            t = ( args.date, )
             c.execute('SELECT * FROM kohbesok WHERE date=?', t)
             if c.fetchone():
                 dbconn.close()
                 return "This date is already registered."
 
-            t = ( d, args.visitors )
+            t = ( args.date, args.visitors )
+
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
-            logging.info('kohbesok entry inserted.')
+
+            logging.info('Inserted %d koh-visitors for %s.' \
+                    % (args.visitors, args.date))
 
             dbconn.close()
 
-            return 'OK, registered %d for today, %s.' % (args.visitors, d)
+            return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
             logging.info('Edit kohbesok request from %s.' % mess.getFrom())
 
-            chatter,resource = mess.getFrom().split('/')
+            chatter,resource = str(mess.getFrom()).split('/')
             if chatter not in ['benedebr@chat.uio.no',
                     'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
                 return "You are not an op."
 
             # Update an existing row
-            c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ))
+            c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
             rs = c.fetchone()
             if not rs:
                 dbconn.close()
@@ -304,7 +324,7 @@ class RTBot(MUCJabberBot):
 
             old_value = rs[1]
 
-            c.execute('UPDATE kohbesok SET visitors=? where date ="?"',
+            c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
             logging.info('kohbesok entry updated.')
@@ -536,6 +556,8 @@ class RTBot(MUCJabberBot):
                 if not rs:
                     # No data registered today, send notification
                     self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
+                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
                             _FORGOTTEN_KOH)
 
                 dbconn.close()
