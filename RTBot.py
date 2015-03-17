@@ -238,7 +238,7 @@ class RTBot(MUCJabberBot):
         elif args.command == 'edit':
             logging.info('Edit kohbesok request from %s.' % mess.getFrom())
 
-            chatter,resource = mess.getFrom().split('/')
+            chatter,resource = str(mess.getFrom()).split('/')
             if chatter not in ['benedebr@chat.uio.no',
                     'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
                 return "You are not an op."
