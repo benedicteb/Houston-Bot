@@ -178,7 +178,23 @@ class RTBot(MUCJabberBot):
     @botcmd
     def kohbesok(self, mess, args):
         """
-        Can be used to register visitor data from KOH and update it.
+        This command is used for editing entries in the KOH-visitors database.
+        You can 'register' and 'edit'. Usually the commands follow the syntax:
+
+        kohbesok register number
+
+        This assumes you want to register for todays date. If you specify with
+        date:
+
+        kohbesok register number --date 2015-01-01
+
+        The number will be registered for the date you specify.
+
+        Editing is done like so:
+
+        kohbesok edit newnumber --date YYYY-mm-dd
+
+        Here the date will also be assumed to be today if you don't specify it.
         """
         words = mess.getBody().strip().split()
         now = datetime.datetime.now()
