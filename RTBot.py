@@ -463,6 +463,8 @@ class RTBot(MUCJabberBot):
                     # No data registered today, send notification
                     self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
                             _FORGOTTEN_KOH)
+                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
 
                 dbconn.close()
 
