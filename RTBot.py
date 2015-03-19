@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib, feedparser, mimetypes
+import argparse, csv, smtplib, feedparser, mimetypes, logging
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -229,14 +229,14 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
 
-            logging.info('Inserted %d koh-visitors for %s.' \
+            logging.info('Inserted %d koh-visitors for %s' \
                     % (args.visitors, args.date))
 
             dbconn.close()
 
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
-            logging.info('Edit kohbesok request from %s.' % mess.getFrom())
+            logging.info('Edit kohbesok request from %s' % mess.getFrom())
 
             chatter,resource = str(mess.getFrom()).split('/')
             if chatter not in ['benedebr@chat.uio.no',
@@ -255,7 +255,7 @@ class RTBot(MUCJabberBot):
             c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
-            logging.info('kohbesok entry updated.')
+            logging.info('kohbesok entry updated')
 
             dbconn.close()
 
@@ -330,12 +330,10 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        logging.info('Finding all kohbesok between %s and %s' % (args.start,
-            args.end))
+        logging.info('Finding all kohbesok between %s and %s' % (args.start, args.end))
 
         writer.writerow(['Date', 'Visitors'])
         for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
-            logging.info(row)
             writer.writerow([row[0], row[1]])
 
         csvfile.close()
@@ -415,9 +413,11 @@ class RTBot(MUCJabberBot):
             sorted_entries.reverse()
             last_drift_title = sorted_entries[0]['title']
         except:
-            logging.info('[%s] Unable to fetch driftsmeldinger feed.' % timestamp())
+            logging.info('Unable to fetch driftsmeldinger feed')
 
         while not self.thread_killed:
+            logging.info('Tick')
+
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
 
@@ -436,6 +436,8 @@ class RTBot(MUCJabberBot):
                     text = "'%s' : %d unowned of total %d tickets."\
                             % (queue, unowned, tot)
                     self._post(text)
+
+                logging.info('Printed queue statuses.')
 
                 if now.hour == start:
                     self._post(self.godmorgen())
@@ -505,7 +507,7 @@ class RTBot(MUCJabberBot):
                     self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
                     last_drift_title = sorted_entries[0]['title']
             except:
-                logging.info('[%s] Unable to fetch driftsmeldinger feed.' % timestamp())
+                logging.info('Unable to fetch driftsmeldinger feed.')
 
             # Do a tick every minute
             for i in range(60):
@@ -513,14 +515,10 @@ class RTBot(MUCJabberBot):
                 if self.thread_killed:
                     return
 
-def timestamp():
-    now = datetime.datetime.now()
-    return datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
-
 if __name__ == '__main__':
-    # Just for connection info ++
-    import logging
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(filename='rtbot.log', level=logging.INFO,
+            format='[%(asctime)s] %(levelname)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S')
 
     # Parse commandline
     parser = argparse.ArgumentParser()
