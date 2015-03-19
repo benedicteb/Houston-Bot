@@ -462,7 +462,7 @@ class RTBot(MUCJabberBot):
                 except:
                     solved_today = 0
 
-                if solved_today != 0 and spam_del_today != 0:
+                if solved_today != 0:
                     text = "Total change today for queue 'houston': %d (%d --> %d)" % (solved_today, cases_this_morning, cases_at_end)
                     self._post(text)
 
