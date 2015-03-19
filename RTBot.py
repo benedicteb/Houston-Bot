@@ -408,11 +408,14 @@ class RTBot(MUCJabberBot):
         sendspam = False
         sendutskrift = False
 
-        # At startup, save last driftsmelding
-        feed = feedparser.parse(_DRIFT_URL)
-        sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-        sorted_entries.reverse()
-        last_drift_title = sorted_entries[0]['title']
+        try:
+            # At startup, save last driftsmelding
+            feed = feedparser.parse(_DRIFT_URL)
+            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+            sorted_entries.reverse()
+            last_drift_title = sorted_entries[0]['title']
+        except:
+            logging.info('[%s] Unable to fetch driftsmeldinger feed.' % timestamp())
 
         while not self.thread_killed:
             now = datetime.datetime.now()
@@ -490,22 +493,29 @@ class RTBot(MUCJabberBot):
 
                 dbconn.close()
 
-            # After this processes taking time can be put
-            feed = feedparser.parse(_DRIFT_URL)
-            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-            sorted_entries.reverse()
+            try:
+                # After this processes taking time can be put
+                feed = feedparser.parse(_DRIFT_URL)
+                sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+                sorted_entries.reverse()
 
-            newest_drift_title = sorted_entries[0]['title']
+                newest_drift_title = sorted_entries[0]['title']
 
-            if newest_drift_title != last_drift_title:
-                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
-                last_drift_title = sorted_entries[0]['title']
+                if newest_drift_title != last_drift_title:
+                    self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+                    last_drift_title = sorted_entries[0]['title']
+            except:
+                logging.info('[%s] Unable to fetch driftsmeldinger feed.' % timestamp())
 
             # Do a tick every minute
             for i in range(60):
                 time.sleep(1)
                 if self.thread_killed:
                     return
+
+def timestamp():
+    now = datetime.datetime.now()
+    return datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
 if __name__ == '__main__':
     # Just for connection info ++
