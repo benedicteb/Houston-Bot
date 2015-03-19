@@ -165,7 +165,7 @@ class RTBot(MUCJabberBot):
 
         output = ""
         counter = 0
-        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+        for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
             output += '%10s: %4d\n' % (row[0], int(row[1]))
             counter += 1
 
