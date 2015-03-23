@@ -341,6 +341,7 @@ class RTBot(MUCJabberBot):
             logging.info('Edit kohbesok request from %s' % mess.getFrom())
 
             if not chatter in ops:
+                dbconn.close()
                 logging.info('%s (not op) tried to edit koh post.' % chatter)
                 return "You are not an op and cannot edit."
 
@@ -349,6 +350,7 @@ class RTBot(MUCJabberBot):
             rs = c.fetchone()
             if not rs:
                 dbconn.close()
+                logging.info('%s tried to edit non-existing data' % chatter)
                 return "There is no data on this date yet."
 
             old_value = rs[1]
