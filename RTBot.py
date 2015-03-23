@@ -238,6 +238,9 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
+        chatter, resource = str(mess.getFrom()).split('/')
+        logging.info('%s listed last 10 koh visits.' % chatter)
+
         output = ""
         counter = 0
         for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
@@ -274,6 +277,7 @@ class RTBot(MUCJabberBot):
         words = mess.getBody().strip().split()
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
+        chatter, resource = str(mess.getFrom()).split('/')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
         parser.add_argument('command', choices=['register', 'edit'],
@@ -286,6 +290,7 @@ class RTBot(MUCJabberBot):
             args = parser.parse_args(words[1:])
             datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
+            logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
         dbconn = sqlite3.connect(self.db)
@@ -304,16 +309,13 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
 
-            logging.info('Inserted %d koh-visitors for %s' \
-                    % (args.visitors, args.date))
+            logging.info('%s registered %d koh-visitors for %s' \
+                    % (chatter, args.visitors, args.date))
 
             dbconn.close()
 
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
-            logging.info('Edit kohbesok request from %s' % mess.getFrom())
-
-            chatter,resource = str(mess.getFrom()).split('/')
             if chatter not in ['benedebr@chat.uio.no',
                     'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
                 return "You are not an op."
@@ -330,7 +332,9 @@ class RTBot(MUCJabberBot):
             c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
-            logging.info('kohbesok entry updated')
+
+            logging.info('%s changed %d to %d for %s' % (chatter, old_value,
+                args.visitors, args.date))
 
             dbconn.close()
 
