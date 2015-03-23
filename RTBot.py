@@ -571,7 +571,7 @@ class RTBot(MUCJabberBot):
                 c = dbconn.cursor()
 
                 c.execute('SELECT * FROM rss WHERE title=?',
-                        ( newest_drift_title ) )
+                        ( newest_drift_title, ) )
                 rs = c.fetchone()
 
                 dbconn.close()
