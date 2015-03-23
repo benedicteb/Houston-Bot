@@ -589,7 +589,7 @@ class RTBot(MUCJabberBot):
                     c = dbconn.cursor()
 
                     c.execute('INSERT INTO rss VALUES (?)',
-                            ( sorted_entries[0]['title'] ))
+                            ( sorted_entries[0]['title'], ))
 
                     dbconn.commit()
                     dbconn.close()
