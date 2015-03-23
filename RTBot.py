@@ -193,7 +193,7 @@ class RTBot(MUCJabberBot):
             return 'You are not an op nor an admin.'
 
         parser = argparse.ArgumentParser(description='useradd command parser')
-        parser.add_argument('level', choices=['op', 'user'],
+        parser.add_argument('level', choices=['op', 'user', 'list'],
                 help='What kind of permission level to give.')
         parser.add_argument('jid', help='Username of person to add.')
 
@@ -220,8 +220,7 @@ class RTBot(MUCJabberBot):
             logging.info('%s made %s an op.' % (chatter, args.jid))
 
             return 'OK, made %s an op.' % args.jid
-
-        if args.level == 'user':
+        elif args.level == 'user':
             if args.jid in users:
                 dbconn.close()
                 return '%s is already a user.' % args.jid
@@ -234,6 +233,22 @@ class RTBot(MUCJabberBot):
 
             dbconn.close()
             return 'OK, made %s a user.' % args.jid
+        elif args.level == 'list':
+            ostring = '--- OPS: ---'
+
+            for op in ops:
+                ostring += '\n* %s' % op
+
+            ostring += '\n--- USERS: ---'
+
+            c.execute('SELECT * FROM users')
+            users = c.fetchall()
+
+            for user in users:
+                ostring += '\n* %s' % user
+
+            logging.info('%s listed all users and ops.' % chatter)
+            dbconn.close()
 
     @botcmd
     def listkoh(self, mess, args):
