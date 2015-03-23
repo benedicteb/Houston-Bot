@@ -233,7 +233,7 @@ class RTBot(MUCJabberBot):
         elif args.level == 'list':
             ostring = '--- OPS: ---'
 
-            for op in ops:
+            for op in self.get_ops():
                 ostring += '\n* %s' % op
 
             ostring += '\n--- USERS: ---'
@@ -241,7 +241,7 @@ class RTBot(MUCJabberBot):
             c.execute('SELECT * FROM users')
             users = c.fetchall()
 
-            for user in users:
+            for user in self.get_users():
                 ostring += '\n* %s' % user
 
             logging.info('%s listed all users and ops.' % chatter)
