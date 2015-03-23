@@ -309,7 +309,6 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
 
-            chatter, resource = str(mess.getFrom()).split('/')
             logging.info('%s registered %d koh-visitors for %s' \
                     % (chatter, args.visitors, args.date))
 
