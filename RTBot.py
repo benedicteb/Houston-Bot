@@ -314,6 +314,7 @@ class RTBot(MUCJabberBot):
         users = c.fetchall()
 
         if not chatter in users and not chatter in ops:
+            dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
