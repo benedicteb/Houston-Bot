@@ -187,7 +187,7 @@ class RTBot(MUCJabberBot):
         c.execute('SELECT * FROM ops')
         ops = c.fetchall()
 
-        if chatter not in ops or chatter != self.admin:
+        if chatter not in ops and chatter != self.admin:
             dbconn.close()
             logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
