@@ -238,6 +238,9 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
+        chatter, resource = str(mess.getFrom()).split('/')
+        logging.info('%s listed last 10 koh visits.' % chatter)
+
         output = ""
         counter = 0
         for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
