@@ -168,6 +168,7 @@ class RTBot(MUCJabberBot):
         c.execute("""CREATE TABLE IF NOT EXISTS rss
                      (title text)""")
 
+        dbconn.commit()
         dbconn.close()
 
         super(RTBot, self).__init__(username, password, only_direct=True)
