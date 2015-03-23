@@ -278,6 +278,7 @@ class RTBot(MUCJabberBot):
         Here the date will also be assumed to be today if you don't specify it.
         """
         words = mess.getBody().strip().split()
+        chatter,resource = str(mess.getFrom()).split('/')
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
 
@@ -296,6 +297,15 @@ class RTBot(MUCJabberBot):
 
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
+
+        c.execute('SELECT * FROM ops')
+        ops = c.fetchall()
+        c.execute('SELECT * FROM users')
+        users = c.fetchall()
+
+        if not chatter in users and not chatter in ops:
+            logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
+            return 'You are neither a registered user or op, go away!'
 
         if args.command == 'register':
             # Check if already registered this date
@@ -319,10 +329,9 @@ class RTBot(MUCJabberBot):
         elif args.command == 'edit':
             logging.info('Edit kohbesok request from %s' % mess.getFrom())
 
-            chatter,resource = str(mess.getFrom()).split('/')
-            if chatter not in ['benedebr@chat.uio.no',
-                    'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
-                return "You are not an op."
+            if not chatter in ops:
+                logging.info('%s (not op) tried to edit koh post.' % chatter)
+                return "You are not an op and cannot edit."
 
             # Update an existing row
             c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
