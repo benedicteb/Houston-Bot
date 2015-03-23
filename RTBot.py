@@ -179,15 +179,11 @@ class RTBot(MUCJabberBot):
         Can be used to set user permissions and add users.
         """
         words = mess.getBody().strip().split()
-
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
         chatter, resource = str(mess.getFrom()).split('/')
 
-        c.execute('SELECT * FROM ops')
-        ops = c.fetchall()
-
-        if chatter not in ops and chatter != self.admin:
+        if not self.is_op(chatter) and chatter != self.admin:
             dbconn.close()
             logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
@@ -209,7 +205,7 @@ class RTBot(MUCJabberBot):
         users = c.fetchall()
 
         if args.level == 'op':
-            if args.jid in ops:
+            if self.is_op(args.jid):
                 dbconn.close()
                 return '%s is already an op.' % args.jid
 
@@ -222,7 +218,7 @@ class RTBot(MUCJabberBot):
 
             return 'OK, made %s an op.' % args.jid
         elif args.level == 'user':
-            if args.jid in users:
+            if self.is_user(args.jid):
                 dbconn.close()
                 return '%s is already a user.' % args.jid
 
@@ -262,12 +258,7 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        c.execute('SELECT * FROM ops')
-        ops = c.fetchall()
-        c.execute('SELECT * FROM users')
-        users = c.fetchall()
-
-        if not chatter in users and not chatter in ops:
+        if not self.is_user(chatter) and not self.is_op(chatter):
             dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
@@ -308,7 +299,6 @@ class RTBot(MUCJabberBot):
         Here the date will also be assumed to be today if you don't specify it.
         """
         words = mess.getBody().strip().split()
-        chatter,resource = str(mess.getFrom()).split('/')
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
@@ -330,12 +320,7 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        c.execute('SELECT * FROM ops')
-        ops = c.fetchall()
-        c.execute('SELECT * FROM users')
-        users = c.fetchall()
-
-        if not chatter in users and not chatter in ops:
+        if not self.is_user(chatter) and not self.is_op(chatter):
             dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
@@ -360,7 +345,7 @@ class RTBot(MUCJabberBot):
 
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
-            if not chatter in ops:
+            if not self.is_op(chatter):
                 dbconn.close()
                 logging.info('%s (not op) tried to edit koh post.' % chatter)
                 return "You are not an op and cannot edit."
@@ -523,6 +508,40 @@ class RTBot(MUCJabberBot):
         """
         """
         self.emailer = emailer
+
+    def is_op(self, chatter):
+        """
+        Returns True / False wether or not user is op.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        she_is = False
+
+        c.execute('SELECT * FROM ops')
+        ops = [elm[0] for elm in c.fetchall()]
+
+        if chatter in ops:
+            she_is = True
+
+        dbconn.close()
+        return she_is
+
+    def is_user(self, chatter):
+        """
+        Returns True / False wether or not user is user.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        she_is = False
+
+        c.execute('SELECT * FROM users')
+        ops = [elm[0] for elm in c.fetchall()]
+
+        if chatter in ops:
+            she_is = True
+
+        dbconn.close()
+        return she_is
 
     def thread_proc(self):
         spam_upper = 100
