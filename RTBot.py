@@ -195,7 +195,8 @@ class RTBot(MUCJabberBot):
         parser = argparse.ArgumentParser(description='useradd command parser')
         parser.add_argument('level', choices=['op', 'user', 'list'],
                 help='What kind of permission level to give.')
-        parser.add_argument('jid', help='Username of person to add.')
+        parser.add_argument('jid', help='Username of person to add.',
+                default=chatter)
 
         try:
             args = parser.parse_args(words[1:])
