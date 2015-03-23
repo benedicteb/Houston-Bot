@@ -158,13 +158,15 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        # Create KOH table if not exists
+        # Create database tables
         c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
                      (date text, visitors integer)""")
         c.execute("""CREATE TABLE IF NOT EXISTS ops
                      (jid text)""")
         c.execute("""CREATE TABLE IF NOT EXISTS users
                      (jid text)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS rss
+                     (title text)""")
 
         dbconn.close()
 
@@ -480,12 +482,6 @@ class RTBot(MUCJabberBot):
         sendspam = False
         sendutskrift = False
 
-        # At startup, save last driftsmelding
-        feed = feedparser.parse(_DRIFT_URL)
-        sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-        sorted_entries.reverse()
-        last_drift_title = sorted_entries[0]['title']
-
         while not self.thread_killed:
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
@@ -566,12 +562,39 @@ class RTBot(MUCJabberBot):
             feed = feedparser.parse(_DRIFT_URL)
             sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
             sorted_entries.reverse()
-
             newest_drift_title = sorted_entries[0]['title']
+            already_posted = False
 
-            if newest_drift_title != last_drift_title:
+            try:
+                dbconn = sqlite3.connect(self.db)
+                c = dbconn.cursor()
+
+                c.execute('SELECT * FROM rss WHERE title=?',
+                        ( newest_drift_title ) )
+                rs = c.fetchone()
+
+                dbconn.close()
+
+                if rs:
+                    already_posted = True
+            except:
+                logging.warning('Could not check for newest title in rss table.')
+
+            if not already_posted:
                 self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
-                last_drift_title = sorted_entries[0]['title']
+
+                # Add this title to the list of printed titles
+                try:
+                    dbconn = sqlite3.connect(self.db)
+                    c = dbconn.cursor()
+
+                    c.execute('INSERT INTO rss VALUES (?)',
+                            ( sorted_entries[0]['title'], ))
+
+                    dbconn.commit()
+                    dbconn.close()
+                except:
+                    logging.warning('Could not connect to db for rss title storage.')
 
             # Do a tick every minute
             for i in range(60):
