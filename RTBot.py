@@ -182,7 +182,7 @@ class RTBot(MUCJabberBot):
 
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
-        chatter, resource = mess.getFrom().split('/')
+        chatter, resource = str(mess.getFrom()).split('/')
 
         c.execute('SELECT * FROM ops')
         ops = c.fetchall()
