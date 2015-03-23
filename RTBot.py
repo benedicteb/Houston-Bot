@@ -201,6 +201,7 @@ class RTBot(MUCJabberBot):
             args = parser.parse_args(words[1:])
         except:
             dbconn.close()
+            logging.info('%s used bad syntax for useradmin.' % chatter)
             return 'Usage: useradd op/user username@domain'
 
         c.execute('SELECT * FROM users')
