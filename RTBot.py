@@ -289,6 +289,8 @@ class RTBot(MUCJabberBot):
             args = parser.parse_args(words[1:])
             datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
+            chatter, resource = str(mess.getFrom()).split('/')
+            logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
         dbconn = sqlite3.connect(self.db)
