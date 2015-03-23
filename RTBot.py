@@ -244,6 +244,16 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
+        c.execute('SELECT * FROM ops')
+        ops = c.fetchall()
+        c.execute('SELECT * FROM users')
+        users = c.fetchall()
+
+        if not chatter in users and not chatter in ops:
+            dbconn.close()
+            logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
+            return 'You are neither a registered user or op, go away!'
+
         output = ""
         counter = 0
         for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
