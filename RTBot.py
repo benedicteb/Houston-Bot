@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib, feedparser, mimetypes
+import argparse, csv, smtplib, feedparser, mimetypes, logging
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -237,7 +237,7 @@ class RTBot(MUCJabberBot):
 
         output = ""
         counter = 0
-        for row in c.execute('SELECT * FROM kohbesok ORDER BY date'):
+        for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
             output += '%10s: %4d\n' % (row[0], int(row[1]))
             counter += 1
 
@@ -301,14 +301,14 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
 
-            logging.info('Inserted %d koh-visitors for %s.' \
+            logging.info('Inserted %d koh-visitors for %s' \
                     % (args.visitors, args.date))
 
             dbconn.close()
 
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
-            logging.info('Edit kohbesok request from %s.' % mess.getFrom())
+            logging.info('Edit kohbesok request from %s' % mess.getFrom())
 
             chatter,resource = str(mess.getFrom()).split('/')
             if chatter not in ['benedebr@chat.uio.no',
@@ -327,7 +327,7 @@ class RTBot(MUCJabberBot):
             c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
-            logging.info('kohbesok entry updated.')
+            logging.info('kohbesok entry updated')
 
             dbconn.close()
 
@@ -402,12 +402,10 @@ class RTBot(MUCJabberBot):
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
 
-        logging.info('Finding all kohbesok between %s and %s' % (args.start,
-            args.end))
+        logging.info('Finding all kohbesok between %s and %s' % (args.start, args.end))
 
         writer.writerow(['Date', 'Visitors'])
         for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
-            logging.info(row)
             writer.writerow([row[0], row[1]])
 
         csvfile.close()
@@ -480,13 +478,18 @@ class RTBot(MUCJabberBot):
         sendspam = False
         sendutskrift = False
 
-        # At startup, save last driftsmelding
-        feed = feedparser.parse(_DRIFT_URL)
-        sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-        sorted_entries.reverse()
-        last_drift_title = sorted_entries[0]['title']
+        try:
+            # At startup, save last driftsmelding
+            feed = feedparser.parse(_DRIFT_URL)
+            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+            sorted_entries.reverse()
+            last_drift_title = sorted_entries[0]['title']
+        except:
+            logging.info('Unable to fetch driftsmeldinger feed')
 
         while not self.thread_killed:
+            logging.info('Tick')
+
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
 
@@ -505,6 +508,8 @@ class RTBot(MUCJabberBot):
                     text = "'%s' : %d unowned of total %d tickets."\
                             % (queue, unowned, tot)
                     self._post(text)
+
+                logging.info('Printed queue statuses.')
 
                 if now.hour == start:
                     self._post(self.godmorgen())
@@ -534,7 +539,7 @@ class RTBot(MUCJabberBot):
                 except:
                     solved_today = 0
 
-                if solved_today != 0 and spam_del_today != 0:
+                if solved_today != 0:
                     text = "Total change today for queue 'houston': %d (%d --> %d)" % (solved_today, cases_this_morning, cases_at_end)
                     self._post(text)
 
@@ -562,16 +567,19 @@ class RTBot(MUCJabberBot):
 
                 dbconn.close()
 
-            # After this processes taking time can be put
-            feed = feedparser.parse(_DRIFT_URL)
-            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-            sorted_entries.reverse()
+            try:
+                # After this processes taking time can be put
+                feed = feedparser.parse(_DRIFT_URL)
+                sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+                sorted_entries.reverse()
 
-            newest_drift_title = sorted_entries[0]['title']
+                newest_drift_title = sorted_entries[0]['title']
 
-            if newest_drift_title != last_drift_title:
-                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
-                last_drift_title = sorted_entries[0]['title']
+                if newest_drift_title != last_drift_title:
+                    self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+                    last_drift_title = sorted_entries[0]['title']
+            except:
+                logging.info('Unable to fetch driftsmeldinger feed.')
 
             # Do a tick every minute
             for i in range(60):
@@ -580,9 +588,9 @@ class RTBot(MUCJabberBot):
                     return
 
 if __name__ == '__main__':
-    # Just for connection info ++
-    import logging
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(filename='rtbot.log', level=logging.INFO,
+            format='[%(asctime)s] %(levelname)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S')
 
     # Parse commandline
     parser = argparse.ArgumentParser()
