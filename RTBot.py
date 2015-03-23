@@ -580,7 +580,7 @@ class RTBot(MUCJabberBot):
             except:
                 logging.warning('Could not check for newest title in rss table.')
 
-            if already_posted:
+            if not already_posted:
                 self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
 
                 # Add this title to the list of printed titles
