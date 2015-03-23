@@ -524,6 +524,40 @@ class RTBot(MUCJabberBot):
         """
         self.emailer = emailer
 
+    def is_op(self, chatter):
+        """
+        Returns True / False wether or not user is op.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        she_is = False
+
+        c.execute('SELECT * FROM ops')
+        ops = [elm[0] for elm in c.fetchall()]
+
+        if chatter in ops:
+            she_is = True
+
+        dbconn.close()
+        return she_is
+
+    def is_user(self, chatter):
+        """
+        Returns True / False wether or not user is user.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        she_is = False
+
+        c.execute('SELECT * FROM users')
+        ops = [elm[0] for elm in c.fetchall()]
+
+        if chatter in ops:
+            she_is = True
+
+        dbconn.close()
+        return she_is
+
     def thread_proc(self):
         spam_upper = 100
         utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
