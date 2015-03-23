@@ -249,6 +249,7 @@ class RTBot(MUCJabberBot):
 
             logging.info('%s listed all users and ops.' % chatter)
             dbconn.close()
+            return ostring
 
     @botcmd
     def listkoh(self, mess, args):
