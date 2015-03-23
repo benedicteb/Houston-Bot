@@ -215,7 +215,7 @@ class RTBot(MUCJabberBot):
 
             t = ( args.jid, )
             c.execute('INSERT INTO ops VALUES (?)', t)
-            c.commit()
+            dbconn.commit()
             dbconn.close()
 
             logging.info('%s made %s an op.' % (chatter, args.jid))
@@ -228,7 +228,7 @@ class RTBot(MUCJabberBot):
 
             t = ( args.jid, )
             c.execute('INSERT INTO users VALUES (?)', t)
-            c.commit()
+            dbconn.commit()
 
             logging.info('%s made %s a user.' % (chatter, args.jid))
 
