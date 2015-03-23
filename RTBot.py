@@ -193,8 +193,8 @@ class RTBot(MUCJabberBot):
             return 'You are not an op nor an admin.'
 
         parser = argparse.ArgumentParser(description='useradd command parser')
-        parser.add_argument('type', choices=['op', 'user'],
-                help='What kind of permission to give.')
+        parser.add_argument('level', choices=['op', 'user'],
+                help='What kind of permission level to give.')
         parser.add_argument('jid', help='Username of person to add.')
 
         try:
@@ -207,24 +207,24 @@ class RTBot(MUCJabberBot):
         c.execute('SELECT * FROM users')
         users = c.fetchall()
 
-        if args.type == op:
+        if args.level == 'op':
             if args.jid in ops:
                 dbconn.close()
                 return '%s is already an op.' % args.jid
 
-            t = ( args.jid )
+            t = ( args.jid, )
             c.execute('INSERT INTO ops VALUES (?)', t)
             c.commit()
 
             dbconn.close()
             return 'OK, made %s an op.' % args.jid
 
-        if args.type == user:
+        if args.level == 'user':
             if args.jid in users:
                 dbconn.close()
                 return '%s is already a user.' % args.jid
 
-            t = ( args.jid )
+            t = ( args.jid, )
             c.execute('INSERT INTO users VALUES (?)', t)
             c.commit()
 
