@@ -509,39 +509,47 @@ class RTBot(MUCJabberBot):
         """
         self.emailer = emailer
 
-    def is_op(self, chatter):
+    def get_users(self):
         """
-        Returns True / False wether or not user is op.
+        Returns list of all users.
         """
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
-        she_is = False
+
+        c.execute('SELECT * FROM users')
+        users = [elm[0] for elm in c.fetchall()]
+
+        dbconn.close()
+        return users
+
+    def get_ops(self):
+        """
+        Returns list of all users.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
 
         c.execute('SELECT * FROM ops')
         ops = [elm[0] for elm in c.fetchall()]
 
-        if chatter in ops:
-            she_is = True
-
         dbconn.close()
-        return she_is
+        return ops
+
+    def is_op(self, chatter):
+        """
+        Returns True / False wether or not user is op.
+        """
+        if chatter in self.get_ops():
+            return True
+        return False
 
     def is_user(self, chatter):
         """
         Returns True / False wether or not user is user.
         """
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-        she_is = False
-
-        c.execute('SELECT * FROM users')
-        ops = [elm[0] for elm in c.fetchall()]
-
-        if chatter in ops:
-            she_is = True
-
-        dbconn.close()
-        return she_is
+        if chatter in self.get_users():
+            return True
+        return False
 
     def thread_proc(self):
         spam_upper = 100
