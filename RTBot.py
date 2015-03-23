@@ -189,6 +189,7 @@ class RTBot(MUCJabberBot):
 
         if chatter not in ops or chatter != self.admin:
             dbconn.close()
+            logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
 
         parser = argparse.ArgumentParser(description='useradd command parser')
