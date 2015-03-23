@@ -195,7 +195,7 @@ class RTBot(MUCJabberBot):
         parser = argparse.ArgumentParser(description='useradd command parser')
         parser.add_argument('level', choices=['op', 'user', 'list'],
                 help='What kind of permission level to give.')
-        parser.add_argument('jid', help='Username of person to add.',
+        parser.add_argument('--jid', help='Username of person to add.',
                 default=chatter)
 
         try:
@@ -203,7 +203,7 @@ class RTBot(MUCJabberBot):
         except:
             dbconn.close()
             logging.info('%s used bad syntax for useradmin.' % chatter)
-            return 'Usage: useradd op/user username@domain'
+            return 'Usage: useradd op/user/list --jid username@domain'
 
         c.execute('SELECT * FROM users')
         users = c.fetchall()
