@@ -167,11 +167,27 @@ class RTBot(MUCJabberBot):
                      (jid text)""")
         c.execute("""CREATE TABLE IF NOT EXISTS rss
                      (title text)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS pakker
+                     (recipient TEXT, sender TEXT, enummer TEXT, id INTEGER PRIMARY KEY, notes TEXT)""")
 
         dbconn.commit()
         dbconn.close()
 
         super(RTBot, self).__init__(username, password, only_direct=True)
+
+    @botcmd
+    def pakke(self, mess, args):
+        """
+        Brukes for å ta imot pakker, liste dem opp og markere de som hentet.
+        """
+        words = mess.getBody().strip().split()
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+        chatter, resource = str(mess.getFrom()).split('/')
+
+        if not self.is_op(chatter) and chatter != self.admin and not
+        self.is_user(chatter):
+
 
     @botcmd
     def useradmin(self, mess, args):
@@ -550,6 +566,14 @@ class RTBot(MUCJabberBot):
         if chatter in self.get_users():
             return True
         return False
+
+    def is_authenticated(self, chatter):
+        """
+        Checks if chatter is admin, op or user.
+        """
+        if not self.is_op(chatter) and not self.is_user(chatter) and chatter != self.admin:
+            return False
+        return True
 
     def thread_proc(self):
         spam_upper = 100
