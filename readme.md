@@ -1,44 +1,25 @@
-UiO-RT-Bot
-==========
+Houston-Bot
+===========
 
-This is an XMPP bot for retrieving info from the RT (Request Tracker) system
-used to manage tickets at UiO.
+Dette er en chattebot utviklet for Houston førstelinje, USIT, Universitetet i
+Oslo. Den poster statistikk fra saksbehandlingssystemet, registrerer besøksdata
+og og melder fra om driftsmeldinger.
 
-## Features
+Den bruker en `sqlite`-database for lagring av brukere og besøksdata. Du har
+muligheten til å bestille kopi av besøksdata på csv sendt til din epost.
 
-Can broadcast status of chosen queues at interval:
-
-```
-(bot) 'queue' : 99 unowned of total 99999 tickets.
-```
-
-Retrieves info when ticket ids are mentioned:
+Den kan startes ved å kalle på main-filen
 
 ```
-(person) this is a ticket #999
-(bot) subject of ticket - owner - status - requestors - link to ticket
+python RTBot.py
 ```
 
-The bot searches for the `#` so be sure to put that in front of your int to
-signal that it is a ticket.
+og vil da spørre om nødvendig credentials. Den trenger en konto som har tilgang
+til køer i RT, en UiO-konto for sending av epost og en chattekonto som har
+tilgang til UiOChat.
 
-## Usage
+I grunnen skal den være generell men har vokst til å bli veldig
+Houston-spesifikk.
 
-Just call the main py-script. It asks for chat credentials and RT credentials.
-Remember to never activate the bot in an open channel if your RT user has access
-to sensitive information since then anyone can get information. However it is
-not possible to communicate privately with the bot. So if the bot is active in a
-restricted channel, you should be safe.
-
-Call with `--broadcast` for broadcasting. At this time you cannot customize the
-interval, it is set to hourly. However that will come later.
-
-First time booting the bot will ask for chat-room and queue, however these will
-be saved to files `default_chatrooms.txt` and `queues.txt`, where you then can
-add lines with queues and rooms if you want the bot to be in more rooms or fetch
-status from several queues.
-
-## Contribute
-
-Feel free to fork and send pull requests! This is something I cooked up in my
-spare time in a couple of hours, and it's definetely not perfect.
+Bidra hvis du vil! Send pull requests til `dev`-tråden så legger vi inn i
+`master` når vi vet ting virker.
