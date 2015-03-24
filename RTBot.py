@@ -179,64 +179,89 @@ class RTBot(MUCJabberBot):
         Can be used to set user permissions and add users.
         """
         words = mess.getBody().strip().split()
-
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
-        chatter, resource = mess.getFrom().split('/')
+        chatter, resource = str(mess.getFrom()).split('/')
 
-        c.execute('SELECT * FROM ops')
-        ops = c.fetchall()
-
-        if chatter not in ops or chatter != self.admin:
+        if not self.is_op(chatter) and chatter != self.admin:
             dbconn.close()
+            logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
 
         parser = argparse.ArgumentParser(description='useradd command parser')
-        parser.add_argument('type', choices=['op', 'user'],
-                help='What kind of permission to give.')
-        parser.add_argument('jid', help='Username of person to add.')
+        parser.add_argument('level', choices=['op', 'user', 'list'],
+                help='What kind of permission level to give.')
+        parser.add_argument('--jid', help='Username of person to add.',
+                default=chatter)
 
         try:
             args = parser.parse_args(words[1:])
         except:
             dbconn.close()
-            return 'Usage: useradd op/user username@domain'
+            logging.info('%s used bad syntax for useradmin.' % chatter)
+            return 'Usage: useradd op/user/list --jid username@domain'
 
         c.execute('SELECT * FROM users')
         users = c.fetchall()
 
-        if args.type == op:
-            if args.jid in ops:
+        if args.level == 'op':
+            if self.is_op(args.jid):
                 dbconn.close()
                 return '%s is already an op.' % args.jid
 
-            t = ( args.jid )
+            t = ( args.jid, )
             c.execute('INSERT INTO ops VALUES (?)', t)
-            c.commit()
-
+            dbconn.commit()
             dbconn.close()
-            return 'OK, made %s an op.' % args.jid
 
-        if args.type == user:
-            if args.jid in users:
+            logging.info('%s made %s an op.' % (chatter, args.jid))
+
+            return 'OK, made %s an op.' % args.jid
+        elif args.level == 'user':
+            if self.is_user(args.jid):
                 dbconn.close()
                 return '%s is already a user.' % args.jid
 
-            t = ( args.jid )
+            t = ( args.jid, )
             c.execute('INSERT INTO users VALUES (?)', t)
-            c.commit()
+            dbconn.commit()
+
+            logging.info('%s made %s a user.' % (chatter, args.jid))
 
             dbconn.close()
             return 'OK, made %s a user.' % args.jid
+        elif args.level == 'list':
+            ostring = '--- OPS: ---'
+
+            for op in self.get_ops():
+                ostring += '\n* %s' % op
+
+            ostring += '\n--- USERS: ---'
+
+            c.execute('SELECT * FROM users')
+            users = c.fetchall()
+
+            for user in self.get_users():
+                ostring += '\n* %s' % user
+
+            logging.info('%s listed all users and ops.' % chatter)
+            dbconn.close()
+            return ostring
 
     @botcmd
     def listkoh(self, mess, args):
         """
         Lists last 10 entries in kos table.
         """
+        chatter, resource = str(mess.getFrom()).split('/')
         now = datetime.datetime.now()
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
+
+        if not self.is_user(chatter) and not self.is_op(chatter):
+            dbconn.close()
+            logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
+            return 'You are neither a registered user or op, go away!'
 
         output = ""
         counter = 0
@@ -246,6 +271,8 @@ class RTBot(MUCJabberBot):
 
             if counter == 10:
                 break
+
+        logging.info('%s listed last 10 koh visits.' % chatter)
 
         dbconn.close()
         return output
@@ -274,6 +301,7 @@ class RTBot(MUCJabberBot):
         words = mess.getBody().strip().split()
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
+        chatter, resource = str(mess.getFrom()).split('/')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
         parser.add_argument('command', choices=['register', 'edit'],
@@ -286,10 +314,16 @@ class RTBot(MUCJabberBot):
             args = parser.parse_args(words[1:])
             datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
+            logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
+
+        if not self.is_user(chatter) and not self.is_op(chatter):
+            dbconn.close()
+            logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
+            return 'You are neither a registered user or op, go away!'
 
         if args.command == 'register':
             # Check if already registered this date
@@ -304,25 +338,24 @@ class RTBot(MUCJabberBot):
             c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
             dbconn.commit()
 
-            logging.info('Inserted %d koh-visitors for %s' \
-                    % (args.visitors, args.date))
+            logging.info('%s registered %d koh-visitors for %s' \
+                    % (chatter, args.visitors, args.date))
 
             dbconn.close()
 
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
-            logging.info('Edit kohbesok request from %s' % mess.getFrom())
-
-            chatter,resource = str(mess.getFrom()).split('/')
-            if chatter not in ['benedebr@chat.uio.no',
-                    'rersdal@chat.uio.no', 'olsen@chat.uio.no']:
-                return "You are not an op."
+            if not self.is_op(chatter):
+                dbconn.close()
+                logging.info('%s (not op) tried to edit koh post.' % chatter)
+                return "You are not an op and cannot edit."
 
             # Update an existing row
             c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
             rs = c.fetchone()
             if not rs:
                 dbconn.close()
+                logging.info('%s tried to edit non-existing data' % chatter)
                 return "There is no data on this date yet."
 
             old_value = rs[1]
@@ -330,7 +363,9 @@ class RTBot(MUCJabberBot):
             c.execute('UPDATE kohbesok SET visitors=? where date=?',
                     (args.visitors, args.date))
             dbconn.commit()
-            logging.info('kohbesok entry updated')
+
+            logging.info('%s changed %d to %d for %s' % (chatter, old_value,
+                args.visitors, args.date))
 
             dbconn.close()
 
@@ -473,6 +508,48 @@ class RTBot(MUCJabberBot):
         """
         """
         self.emailer = emailer
+
+    def get_users(self):
+        """
+        Returns list of all users.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        c.execute('SELECT * FROM users')
+        users = [elm[0] for elm in c.fetchall()]
+
+        dbconn.close()
+        return users
+
+    def get_ops(self):
+        """
+        Returns list of all users.
+        """
+        dbconn = sqlite3.connect(self.db)
+        c = dbconn.cursor()
+
+        c.execute('SELECT * FROM ops')
+        ops = [elm[0] for elm in c.fetchall()]
+
+        dbconn.close()
+        return ops
+
+    def is_op(self, chatter):
+        """
+        Returns True / False wether or not user is op.
+        """
+        if chatter in self.get_ops():
+            return True
+        return False
+
+    def is_user(self, chatter):
+        """
+        Returns True / False wether or not user is user.
+        """
+        if chatter in self.get_users():
+            return True
+        return False
 
     def thread_proc(self):
         spam_upper = 100
