@@ -243,7 +243,13 @@ class RTBot(MUCJabberBot):
             now = datetime.datetime.now()
             dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
-            dbconn = sqlite3.connect(self.db)
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('%s attempt nypakke failed, no db connection.'\
+                        % chatter)
+                return 'Error, could not connect to database.'
+
             c = dbconn.cursor()
             c.execute('SELECT max(id) FROM pakker')
             rs = cursor.fetchone()
@@ -256,8 +262,17 @@ class RTBot(MUCJabberBot):
             indata = (args.recipient, args.sender, args.enummer, args.email,
                     new_id, args.notes, dt_str, 0, '', '', chatter)
             instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-            c.execue(instr, indata)
-            logging.info('%s added package-line "%s"' % (chatter,instr))
+
+            try:
+                c.execute(instr, indata)
+            except:
+                dbconn.close()
+                logging.warning('Adding nypakke to db failed for line\n  %s'\
+                        % str(indata) )
+                return 'Unable to save nypakke to database.'
+
+            logging.info('%s added package-line\n  "%s"'\
+                    % (chatter, str(indata)))
 
             dbconn.commit()
             dbconn.close()
