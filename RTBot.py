@@ -264,7 +264,7 @@ class RTBot(MUCJabberBot):
             c.execute('SELECT max(id) FROM pakker')
             max_id = c.fetchone()[0]
 
-            if not max_id:
+            if max_id == None:
                 new_id = 0
             else:
                 new_id = max_id + 1
