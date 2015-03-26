@@ -270,8 +270,8 @@ class RTBot(MUCJabberBot):
                 new_id = max_id + 1
 
             indata = (args.recipient, args.sender, args.enummer, args.email,
-                    new_id, args.notes, dt_str, 0, '', '', chatter)
-            instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+                    new_id, args.notes, dt_str, 0, '', '', chatter, '')
+            instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
 
             try:
                 c.execute(instr, indata)
