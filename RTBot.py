@@ -63,6 +63,16 @@ Eventuelle notater: %s
 
 hilsen Anna
 """
+_PACKAGE_KVIT = \
+"""
+Hei,
+
+dette er en bekreftelse på at du (%s) hentet pakken med id %d her i
+Houston-resepsjonen.
+
+
+hilsen Anna
+"""
 
 """CLASSES"""
 class Emailer(object):
@@ -312,9 +322,14 @@ class RTBot(MUCJabberBot):
                                 % chatter)
                 return 'Need the id of the package.'
 
-            dbconn = sqlite3.connect(self.db)
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
             c = dbconn.cursor()
-            c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
+            c.execute('SELECT (email) FROM pakker WHERE id=?', ( args.id, ))
             rs = c.fetchone()
             dbconn.close()
 
@@ -326,7 +341,12 @@ class RTBot(MUCJabberBot):
             now = datetime.datetime.now()
             dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
-            dbconn = sqlite3.connect(self.db)
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
             c = dbconn.cursor()
             c.execute("""UPDATE pakker SET
                          hentet=?,hentet_av=?,hentet_da=?,registrert_hentet_av=?
@@ -334,10 +354,18 @@ class RTBot(MUCJabberBot):
             dbconn.commit()
             dbconn.close()
 
-            # TODO Send kvitteringsepost
+            self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
+                    % (args.sender, new_id), _PACKAGE_KVIT % (args.picker,
+                        args.id) )
+
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
-            dbconn = sqlite3.connect(self.db)
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
             c = dbconn.cursor()
             c.execute('SELECT (id, date_added, sender, recipient, enummer) FROM pakker ORDER BY date_added')
             rs = c.fetchall()
