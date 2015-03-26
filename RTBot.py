@@ -54,7 +54,7 @@ _PACKAGE_TEXT_EN = \
 Hei,
 
 det har kommet en ny pakke til dere (%s) fra %s med e-nummer %s. Den kan hentes
-i Housto-resepsjonen.
+i Houston-resepsjonen.
 
 Oppgi koden %d når du kommer for å hente den.
 
@@ -277,7 +277,14 @@ class RTBot(MUCJabberBot):
             dbconn.commit()
             dbconn.close()
 
-            # TODO Send e-mail
+            if args.enummer:
+                self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
+                        % (args.sender, new_id), _PACKAGE_TEXT_EN % (args.recipient,
+                            args.sender, args.enummer, new_id, args.notes) )
+            else:
+                self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
+                        % (args.sender, new_id), _PACKAGE_TEXT % (args.recipient,
+                            args.sender, new_id, args.notes) )
 
             return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
         elif args.command == 'uhentede':
