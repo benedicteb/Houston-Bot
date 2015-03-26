@@ -317,7 +317,7 @@ class RTBot(MUCJabberBot):
             logging.info('%s listed all un-fetched packages.' % chatter)
             return ostring
         elif args.command == 'hent':
-            if not args.id and not args.picker:
+            if not args.id or not args.picker:
                 logging.warning('%s tried to pickup package without id or picker.'\
                                 % chatter)
                 return 'Need the id of the package.'
@@ -332,6 +332,8 @@ class RTBot(MUCJabberBot):
             c.execute('SELECT email FROM pakker WHERE id=?', ( args.id, ))
             rs = c.fetchone()
             dbconn.close()
+
+            email = rs[0]
 
             if not rs:
                 logging.warning('%s tried to pickup non-existing package.'\
@@ -354,8 +356,8 @@ class RTBot(MUCJabberBot):
             dbconn.commit()
             dbconn.close()
 
-            self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
-                    % (args.sender, args.id), _PACKAGE_KVIT % (args.picker, args.id) )
+            self.emailer.send_email(email, 'Kvittering på hentet pakke %d'\
+                    % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
 
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
