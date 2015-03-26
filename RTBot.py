@@ -355,8 +355,7 @@ class RTBot(MUCJabberBot):
             dbconn.close()
 
             self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
-                    % (args.sender, new_id), _PACKAGE_KVIT % (args.picker,
-                        args.id) )
+                    % (args.sender, args.id), _PACKAGE_KVIT % (args.picker, args.id) )
 
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
