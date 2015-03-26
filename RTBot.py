@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib, feedparser, mimetypes, logging
+import argparse, csv, smtplib, feedparser, mimetypes, logging, shlex
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -221,7 +221,7 @@ class RTBot(MUCJabberBot):
         """
         Brukes for å ta imot pakker, liste dem opp og markere de som hentet.
         """
-        words = mess.getBody().strip().split()
+        words = shlex.split(mess.getBody().strip())
         chatter, resource = str(mess.getFrom()).split('/')
 
         if not self.is_authenticated(chatter):
