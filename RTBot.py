@@ -17,7 +17,7 @@ from pyRT.src.RT import RTCommunicator
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
-"""
+u"""
 Hei,
 
 det ble glemt å registrere antall besøkende med meg i dag..
@@ -26,7 +26,7 @@ det ble glemt å registrere antall besøkende med meg i dag..
 hilsen Anna
 """
 _EXPORT_KOH = \
-"""
+u"""
 Hei,
 
 her er filen med eksporterte KOH-data.
@@ -36,7 +36,7 @@ hilsen Anna
 """
 _DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
 _PACKAGE_TEXT = \
-"""
+u"""
 Hei,
 
 det har kommet en ny pakke til dere (%s) fra %s uten e-nummer. Den kan hentes i
@@ -50,7 +50,7 @@ Eventuelle notater: %s
 hilsen Anna
 """
 _PACKAGE_TEXT_EN = \
-"""
+u"""
 Hei,
 
 det har kommet en ny pakke til dere (%s) fra %s med e-nummer %s. Den kan hentes
@@ -64,7 +64,7 @@ Eventuelle notater: %s
 hilsen Anna
 """
 _PACKAGE_KVIT = \
-"""
+u"""
 Hei,
 
 dette er en bekreftelse på at du (%s) hentet pakken med id %d her i
@@ -288,11 +288,11 @@ class RTBot(MUCJabberBot):
             dbconn.close()
 
             if args.enummer:
-                self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
+                self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
                         % (args.sender, new_id), _PACKAGE_TEXT_EN % (args.recipient,
                             args.sender, args.enummer, new_id, args.notes) )
             else:
-                self.emailer.send_email(args.email, 'Ny pakke fra %s, hente-id: %d'\
+                self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
                         % (args.sender, new_id), _PACKAGE_TEXT % (args.recipient,
                             args.sender, new_id, args.notes) )
 
