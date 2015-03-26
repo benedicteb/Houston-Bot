@@ -288,7 +288,12 @@ class RTBot(MUCJabberBot):
 
             return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
         elif args.command == 'uhentede':
-            dbconn = sqlite3.connect(self.db)
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.error('Listing packages failed due to no db connection.')
+                return 'Could not connect to database.'
+
             c = dbconn.cursor()
             c.execute('SELECT (id, date_added, sender, recipient, enummer) FROM pakker WHERE hentet=?', 0)
             rs = c.fetchall()
