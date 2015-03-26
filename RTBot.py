@@ -246,9 +246,12 @@ class RTBot(MUCJabberBot):
             dbconn = sqlite3.connect(self.db)
             c = dbconn.cursor()
             c.execute('SELECT max(id) FROM pakker')
+            rs = cursor.fetchone()
 
-            max_id = cursor.fetchone()[0]
-            new_id = max_id + 1
+            if not rs:
+                new_id = 0
+            else:
+                new_id = rs[0] + 1
 
             indata = (args.recipient, args.sender, args.enummer, args.email,
                     new_id, args.notes, dt_str, 0, '', '', chatter)
