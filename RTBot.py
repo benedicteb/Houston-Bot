@@ -350,7 +350,7 @@ class RTBot(MUCJabberBot):
             c = dbconn.cursor()
             c.execute("""UPDATE pakker SET
                          hentet=?,hentet_av=?,hentet_da=?,registrert_hentet_av=?
-                         WHERE id=?""", ( 1, args.picker, dt_str, chatter))
+                         WHERE id=?""", ( 1, args.picker, dt_str, chatter, args.id))
             dbconn.commit()
             dbconn.close()
 
