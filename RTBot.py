@@ -240,7 +240,7 @@ class RTBot(MUCJabberBot):
         parser.add_argument('--notes', default='')
 
         try:
-            args = parser.parse_args()
+            args = parser.parse_args(words[1:])
         except:
             logging.info('%s used bad syntax for pakke.' % chatter)
             return 'Usage: pakke ny/uhentede/hent/siste --recipinet recipient --sender sender --enummer enummer --notes notes'
