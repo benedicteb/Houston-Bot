@@ -230,7 +230,7 @@ class RTBot(MUCJabberBot):
 
         parser = argparse.ArgumentParser(description='pakke command parser')
         parser.add_argument('command', choices=['ny', 'uhentede', 'hent',
-            'siste'])
+            'siste', 'show'])
         parser.add_argument('--recipient', default=False)
         parser.add_argument('--sender', default=False)
         parser.add_argument('--enummer', default='')
@@ -383,6 +383,28 @@ class RTBot(MUCJabberBot):
 
             logging.info('%s listed last 10 packages.' % chatter)
             return ostring
+        elif args.command == 'show':
+            if not args.id:
+                return 'You can only show with id.'
+            
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+                
+            c = dbconn.cursor()
+            c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
+            rs = c.fetchone()
+            dbconn.close()
+            
+            if not rs:
+                logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
+                return 'No package with the id %d.' % args.id
+                
+            package = rs[0]
+            
+            return str(package)
 
     @botcmd
     def useradmin(self, mess, args):
