@@ -305,7 +305,7 @@ class RTBot(MUCJabberBot):
                 return 'Could not connect to database.'
 
             c = dbconn.cursor()
-            c.execute('SELECT (id, date_added, sender, recipient, enummer) FROM pakker WHERE hentet=?', 0)
+            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker WHERE hentet=?', 0)
             rs = c.fetchall()
             dbconn.close()
 
@@ -329,7 +329,7 @@ class RTBot(MUCJabberBot):
                 return 'Could not connect to db.'
 
             c = dbconn.cursor()
-            c.execute('SELECT (email) FROM pakker WHERE id=?', ( args.id, ))
+            c.execute('SELECT email FROM pakker WHERE id=?', ( args.id, ))
             rs = c.fetchone()
             dbconn.close()
 
@@ -367,7 +367,7 @@ class RTBot(MUCJabberBot):
                 return 'Could not connect to db.'
 
             c = dbconn.cursor()
-            c.execute('SELECT (id, date_added, sender, recipient, enummer) FROM pakker ORDER BY date_added')
+            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker ORDER BY date_added')
             rs = c.fetchall()
             dbconn.close()
 
