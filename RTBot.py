@@ -576,9 +576,10 @@ class RTBot(MUCJabberBot):
                         sendutskrift = True
                         utskrift_tot = tot
 
-                    text = "'%s' : %d unowned of total %d tickets."\
-                            % (queue, unowned, tot)
-                    self._post(text)
+                    if tot > 0:
+                        text = "'%s' : %d unowned of total %d tickets."\
+                                % (queue, unowned, tot)
+                        self._post(text)
 
                 logging.info('Printed queue statuses.')
 
