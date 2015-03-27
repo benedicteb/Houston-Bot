@@ -320,7 +320,7 @@ class RTBot(MUCJabberBot):
             if not args.id or not args.picker:
                 logging.warning('%s tried to pickup package without id or picker.'\
                                 % chatter)
-                return 'Need the id of the package.'
+                return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
 
             try:
                 dbconn = sqlite3.connect(self.db)
