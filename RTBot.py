@@ -403,8 +403,28 @@ class RTBot(MUCJabberBot):
                 return 'No package with the id %d.' % args.id
 
             package = rs[0]
+            columns = ["Recipient", "Sender", "E-nummer", "Email", "Id",
+                    "Notes", "Date added", "Hentet", "Hentet av", "Hentet når",
+                    "Registrert av", "Registrert hentet av"]
+            fields = {}
 
-            return str(package)
+            for i in range(len(package)):
+                fields[columns[i]] = package[i]
+
+            ostring = '\n'
+            ostring += '\n%20s: %20s' % ("Id", fields["Id"])
+            ostring += '\n%20s: %20s' % ("Recipient", fields["Recipient"])
+            ostring += '\n%20s: %20s' % ("Sender", fields["Sender"])
+            ostring += '\n%20s: %20s' % ("E-nummer", fields["E-nummer"])
+            ostring += '\n%20s: %20s' % ("Email", fields["Email"])
+            ostring += '\n%20s: %20s' % ("Date added", fields["Date added"])
+            ostring += '\n%20s: %20s' % ("Registrert av", fields["Registrert av"])
+            ostring += '\n%20s: %20d' % ("Hentet", fields["Hentet"])
+            ostring += '\n%20s: %20s' % ("Hentet av", fields["Hentet av"])
+            ostring += '\n%20s: %20s' % ("Hentet når", fields["Hentet når"])
+            ostring += '\n%20s: %20s' % ("Registrert hentet av", fields["Registrert hentet av"])
+
+            return ostring
 
     @botcmd
     def useradmin(self, mess, args):
