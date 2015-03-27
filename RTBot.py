@@ -309,7 +309,7 @@ class RTBot(MUCJabberBot):
             rs = c.fetchall()
             dbconn.close()
 
-            ostring = '%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
+            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
             for pack in rs:
                 ostring += '\n%5d %20s %20s %20s %10s' % pack
@@ -372,7 +372,7 @@ class RTBot(MUCJabberBot):
             rs = c.fetchall()
             dbconn.close()
 
-            ostring = '%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
+            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
             counter = 1
             for pack in rs:
