@@ -6,7 +6,7 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 @author Benedicte Emilie Brækken
 """
 import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib, feedparser, mimetypes, logging
+import argparse, csv, smtplib, feedparser, mimetypes, logging, shlex
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -17,7 +17,7 @@ from pyRT.src.RT import RTCommunicator
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
-"""
+u"""
 Hei,
 
 det ble glemt å registrere antall besøkende med meg i dag..
@@ -26,7 +26,7 @@ det ble glemt å registrere antall besøkende med meg i dag..
 hilsen Anna
 """
 _EXPORT_KOH = \
-"""
+u"""
 Hei,
 
 her er filen med eksporterte KOH-data.
@@ -35,6 +35,44 @@ her er filen med eksporterte KOH-data.
 hilsen Anna
 """
 _DRIFT_URL = "http://www.uio.no/tjenester/it/aktuelt/driftsmeldinger/?vrtx=feed"
+_PACKAGE_TEXT = \
+u"""
+Hei,
+
+det har kommet en ny pakke til dere (%s) fra %s uten e-nummer. Den kan hentes i
+Houston-resepsjonen.
+
+Oppgi koden %d når du kommer for å hente den.
+
+Eventuelle notater: %s
+
+
+hilsen Anna
+"""
+_PACKAGE_TEXT_EN = \
+u"""
+Hei,
+
+det har kommet en ny pakke til dere (%s) fra %s med e-nummer %s. Den kan hentes
+i Houston-resepsjonen.
+
+Oppgi koden %d når du kommer for å hente den.
+
+Eventuelle notater: %s
+
+
+hilsen Anna
+"""
+_PACKAGE_KVIT = \
+u"""
+Hei,
+
+dette er en bekreftelse på at du (%s) hentet pakken med id %d her i
+Houston-resepsjonen.
+
+
+hilsen Anna
+"""
 
 """CLASSES"""
 class Emailer(object):
@@ -167,6 +205,11 @@ class RTBot(MUCJabberBot):
                      (jid text)""")
         c.execute("""CREATE TABLE IF NOT EXISTS rss
                      (title text)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS pakker
+                     (recipient TEXT, sender TEXT, enummer TEXT, email TEXT, id
+                     INTEGER PRIMARY KEY, notes TEXT, date_added TEXT, hentet
+                     INTEGER, hentet_av TEXT, hentet_da TEXT, registrert_av TEXT,
+                     registrert_hentet_av TEXT)""")
 
         dbconn.commit()
         dbconn.close()
@@ -174,11 +217,208 @@ class RTBot(MUCJabberBot):
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
+    def pakke(self, mess, args):
+        """
+        Brukes for å ta imot pakker, liste dem opp og markere de som hentet.
+        """
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
+        chatter, resource = str(mess.getFrom()).split('/')
+
+        if not self.is_authenticated(chatter):
+            logging.warning('%s tried to run pakke and was shown out.' % chatter)
+            return "You are neither an op, admin or user. Go away!"
+
+        parser = argparse.ArgumentParser(description='pakke command parser')
+        parser.add_argument('command', choices=['ny', 'uhentede', 'hent',
+            'siste', 'show'])
+        parser.add_argument('--recipient', default=False)
+        parser.add_argument('--sender', default=False)
+        parser.add_argument('--enummer', default='')
+        parser.add_argument('--id', default=None, type=int)
+        parser.add_argument('--picker', default=False)
+        parser.add_argument('--email', default=False)
+        parser.add_argument('--notes', default='')
+
+        try:
+            args = parser.parse_args(words[1:])
+        except:
+            logging.info('%s used bad syntax for pakke.' % chatter)
+            return 'Usage: pakke ny/uhentede/hent/siste --recipinet recipient --sender sender --enummer enummer --notes notes'
+
+        if args.command == 'ny':
+            if not args.recipient or not args.sender or not args.email:
+                logging.info('%s did not give enough info for ny pakke.' % chatter)
+                return 'Recipient, sender and contact e-mail is mandatory.'
+
+            now = datetime.datetime.now()
+            dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
+
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('%s attempt nypakke failed, no db connection.'\
+                        % chatter)
+                return 'Error, could not connect to database.'
+
+            c = dbconn.cursor()
+            c.execute('SELECT max(id) FROM pakker')
+            max_id = c.fetchone()[0]
+
+            if max_id == None:
+                new_id = 0
+            else:
+                new_id = max_id + 1
+
+            indata = (args.recipient, args.sender, args.enummer, args.email,
+                    new_id, args.notes, dt_str, 0, '', '', chatter, '')
+            instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+
+            try:
+                c.execute(instr, indata)
+            except:
+                dbconn.close()
+                logging.warning('Adding nypakke to db failed for line\n  %s'\
+                        % str(indata) )
+                return 'Unable to save nypakke to database.'
+
+            logging.info('%s added package-line\n  "%s"'\
+                    % (chatter, str(indata)))
+
+            dbconn.commit()
+            dbconn.close()
+
+            if args.enummer:
+                self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
+                        % (args.sender, new_id), _PACKAGE_TEXT_EN % (args.recipient,
+                            args.sender, args.enummer, new_id, args.notes) )
+            else:
+                self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
+                        % (args.sender, new_id), _PACKAGE_TEXT % (args.recipient,
+                            args.sender, new_id, args.notes) )
+
+            return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
+        elif args.command == 'uhentede':
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.error('Listing packages failed due to no db connection.')
+                return 'Could not connect to database.'
+
+            c = dbconn.cursor()
+            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker WHERE hentet=?', (0,))
+            rs = c.fetchall()
+            dbconn.close()
+
+            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
+
+            for pack in rs:
+                ostring += '\n%5d %20s %20s %20s %10s' % pack
+
+            logging.info('%s listed all un-fetched packages.' % chatter)
+            return ostring
+        elif args.command == 'hent':
+            if not args.id or not args.picker:
+                logging.warning('%s tried to pickup package without id or picker.'\
+                                % chatter)
+                return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
+
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
+            c = dbconn.cursor()
+            c.execute('SELECT email FROM pakker WHERE id=?', ( args.id, ))
+            rs = c.fetchone()
+            dbconn.close()
+
+            email = rs[0]
+
+            if not rs:
+                logging.warning('%s tried to pickup non-existing package.'\
+                        % chatter)
+                return 'No such package.'
+
+            now = datetime.datetime.now()
+            dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
+
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
+            c = dbconn.cursor()
+            c.execute("""UPDATE pakker SET
+                         hentet=?,hentet_av=?,hentet_da=?,registrert_hentet_av=?
+                         WHERE id=?""", ( 1, args.picker, dt_str, chatter, args.id))
+            dbconn.commit()
+            dbconn.close()
+
+            self.emailer.send_email(email, 'Kvittering på hentet pakke %d'\
+                    % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
+
+            return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
+        elif args.command == 'siste':
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
+            c = dbconn.cursor()
+            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker ORDER BY date_added DESC')
+            rs = c.fetchall()
+            dbconn.close()
+
+            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
+
+            counter = 1
+            for pack in rs:
+                ostring += '\n%5d %20s %20s %20s %10s' % pack
+                counter += 1
+                if counter == 10:
+                    break
+
+            logging.info('%s listed last 10 packages.' % chatter)
+            return ostring
+        elif args.command == 'show':
+            if args.id == None:
+                return 'You can only show with id.'
+
+            try:
+                dbconn = sqlite3.connect(self.db)
+            except:
+                logging.warning('Could not connect to db.')
+                return 'Could not connect to db.'
+
+            c = dbconn.cursor()
+            c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
+            rs = c.fetchone()
+            dbconn.close()
+
+            if not rs:
+                logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
+                return 'No package with the id %d.' % args.id
+
+            columns = ["Recipient", "Sender", "E-nummer", "Email", "Id",
+                    "Notes", "Date added", "Hentet", "Hentet av", "Hentet når",
+                    "Registrert av", "Registrert hentet av"]
+
+            ostring = ''
+
+            for col,val in zip(columns, rs):
+                ostring += '\n%20s: %20s' % (col,str(val))
+
+            return ostring
+
+    @botcmd
     def useradmin(self, mess, args):
         """
         Can be used to set user permissions and add users.
         """
-        words = mess.getBody().strip().split()
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
         chatter, resource = str(mess.getFrom()).split('/')
@@ -298,7 +538,7 @@ class RTBot(MUCJabberBot):
 
         Here the date will also be assumed to be today if you don't specify it.
         """
-        words = mess.getBody().strip().split()
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
@@ -550,6 +790,14 @@ class RTBot(MUCJabberBot):
         if chatter in self.get_users():
             return True
         return False
+
+    def is_authenticated(self, chatter):
+        """
+        Checks if chatter is admin, op or user.
+        """
+        if not self.is_op(chatter) and not self.is_user(chatter) and chatter != self.admin:
+            return False
+        return True
 
     def thread_proc(self):
         spam_upper = 100
