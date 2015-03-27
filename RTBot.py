@@ -386,24 +386,24 @@ class RTBot(MUCJabberBot):
         elif args.command == 'show':
             if not args.id:
                 return 'You can only show with id.'
-            
+
             try:
                 dbconn = sqlite3.connect(self.db)
             except:
                 logging.warning('Could not connect to db.')
                 return 'Could not connect to db.'
-                
+
             c = dbconn.cursor()
             c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
             rs = c.fetchone()
             dbconn.close()
-            
+
             if not rs:
                 logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
                 return 'No package with the id %d.' % args.id
-                
+
             package = rs[0]
-            
+
             return str(package)
 
     @botcmd
