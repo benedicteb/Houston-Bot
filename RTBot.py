@@ -402,15 +402,14 @@ class RTBot(MUCJabberBot):
                 logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
                 return 'No package with the id %d.' % args.id
 
-            package = rs[0]
             columns = ["Recipient", "Sender", "E-nummer", "Email", "Id",
                     "Notes", "Date added", "Hentet", "Hentet av", "Hentet når",
                     "Registrert av", "Registrert hentet av"]
 
-            ostring = '\n'
+            ostring = ''
 
-            for col,val in zip(columns, package):
-                ostring += '%20s: %20s' % (col,str(val))
+            for col,val in zip(columns, rs):
+                ostring += '\n%20s: %20s' % (col,str(val))
 
             return ostring
 
