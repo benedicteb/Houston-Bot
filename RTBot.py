@@ -221,7 +221,7 @@ class RTBot(MUCJabberBot):
         """
         Brukes for å ta imot pakker, liste dem opp og markere de som hentet.
         """
-        words = shlex.split(mess.getBody().strip())
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         chatter, resource = str(mess.getFrom()).split('/')
 
         if not self.is_authenticated(chatter):
@@ -431,7 +431,7 @@ class RTBot(MUCJabberBot):
         """
         Can be used to set user permissions and add users.
         """
-        words = shlex.split(mess.getBody().strip())
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         dbconn = sqlite3.connect(self.db)
         c = dbconn.cursor()
         chatter, resource = str(mess.getFrom()).split('/')
@@ -551,7 +551,7 @@ class RTBot(MUCJabberBot):
 
         Here the date will also be assumed to be today if you don't specify it.
         """
-        words = shlex.split(mess.getBody().strip())
+        words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         now = datetime.datetime.now()
         d = datetime.datetime.strftime(now, '%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
