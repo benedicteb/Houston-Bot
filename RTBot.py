@@ -234,7 +234,7 @@ class RTBot(MUCJabberBot):
         parser.add_argument('--recipient', default=False)
         parser.add_argument('--sender', default=False)
         parser.add_argument('--enummer', default='')
-        parser.add_argument('--id', default=False, type=int)
+        parser.add_argument('--id', default=None, type=int)
         parser.add_argument('--picker', default=False)
         parser.add_argument('--email', default=False)
         parser.add_argument('--notes', default='')
@@ -384,7 +384,7 @@ class RTBot(MUCJabberBot):
             logging.info('%s listed last 10 packages.' % chatter)
             return ostring
         elif args.command == 'show':
-            if not args.id:
+            if args.id == None:
                 return 'You can only show with id.'
 
             try:
