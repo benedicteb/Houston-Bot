@@ -317,7 +317,7 @@ class RTBot(MUCJabberBot):
             logging.info('%s listed all un-fetched packages.' % chatter)
             return ostring
         elif args.command == 'hent':
-            if not args.id or not args.picker:
+            if args.id == None or not args.picker:
                 logging.warning('%s tried to pickup package without id or picker.'\
                                 % chatter)
                 return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
