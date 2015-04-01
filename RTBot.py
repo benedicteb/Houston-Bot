@@ -565,6 +565,11 @@ class RTBot(MUCJabberBot):
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
+        if datetime.datetime.strptime(args.date, '%Y-%m-%d') > now:
+            dbconn.close()
+            logging.info('%s tried to register %d for %s ignored since in future.' % (chatter, args.visitors, args.date))
+            return 'You cannot register for dates in the future.'
+
         if args.command == 'register':
             # Check if already registered this date
             t = ( args.date, )
