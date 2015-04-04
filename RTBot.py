@@ -806,9 +806,11 @@ class RTBot(MUCJabberBot):
         return True
 
     def thread_proc(self):
-        spam_upper = 100
+        spam_upper = 100        # Limit for sending "Time to take spam?"
+        spam_last = 0           # Needed to not spam with spam noties
         utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
 
+        # Triggers for special notifications
         sendspam = False
         sendutskrift = False
 
@@ -823,8 +825,14 @@ class RTBot(MUCJabberBot):
                     tot = self.RT.get_no_all_open(queue)
                     unowned = self.RT.get_no_unowned_open(queue)
 
-                    if queue == 'spam-suspects' and tot > spam_upper:
-                        sendspam = True
+                    if queue == 'spam-suspects':
+                        # Only notify on lots of spam if number is less than
+                        # last run
+                        if tot > spam_upper and tot < spam_last:
+                            sendspam = True
+
+                        # Update number of spam last run
+                        spam_last = tot
 
                     if queue == 'houston-utskrift' and tot > utskrift_tot:
                         sendutskrift = True
