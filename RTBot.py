@@ -813,8 +813,6 @@ class RTBot(MUCJabberBot):
         sendutskrift = False
 
         while not self.thread_killed:
-            logging.info('Tick')
-
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
 
