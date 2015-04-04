@@ -566,6 +566,12 @@ class RTBot(MUCJabberBot):
             return 'You are neither a registered user or op, go away!'
 
         if args.command == 'register':
+            # Check if in future
+            if datetime.datetime.strptime(args.date, '%Y-%m-%d') > now:
+                dbconn.close()
+                logging.info('%s tried to register %d for %s ignored since in future.' % (chatter, args.visitors, args.date))
+                return 'You cannot register for dates in the future.'
+
             # Check if already registered this date
             t = ( args.date, )
             c.execute('SELECT * FROM kohbesok WHERE date=?', t)
