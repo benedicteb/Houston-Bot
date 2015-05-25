@@ -26,9 +26,10 @@ import shlex
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
 from sqlalchemy import func
+from sqlalchemy.sql import exists
 
 from pyRT.src.RT import RTCommunicator
-import db
+from Emailer import Emailer
 
 _PREFFILE = 'dbpath.txt'
 
@@ -179,8 +180,9 @@ class RTBot(MUCJabberBot):
             now = datetime.datetime.now()
             dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
-            with db.load_session() as s:
-                max_id = s.query(func.max(db.Package))
+            s = db.load_session()
+            max_id = s.query(func.max(db.Package))
+            s.close()
 
             if max_id == None:
                 new_id = 0
@@ -190,9 +192,11 @@ class RTBot(MUCJabberBot):
             new_package = db.Package(recipient=args.recipient,
                     sender=args.sender, enummer=args.enummer, email=args.email,
                     notes=args.notes, registrert_av=chatter)
-            with db.load_session() as s:
-                s.add(new_package)
-                s.commit()
+
+            s = db.load_session()
+            s.add(new_package)
+            s.commit()
+            s.close()
 
             logging.info('%s added package-line\n  "%s"'\
                     % (chatter, str(indata)))
@@ -208,8 +212,8 @@ class RTBot(MUCJabberBot):
 
             return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
         elif args.command == 'uhentede':
-            with db.load_session() as s:
-                s.query(db.Package).filter_by(hentet=False).all()
+            s = db.load_session()
+            rs = s.query(db.Package).filter_by(hentet=False).all()
 
             ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
@@ -218,6 +222,7 @@ class RTBot(MUCJabberBot):
                         pack.date_added, pack.sender, pack.recipient,
                         pack.enummer)
 
+            s.close()
             logging.info('%s listed all un-fetched packages.' % chatter)
             return ostring
         elif args.command == 'hent':
@@ -226,38 +231,44 @@ class RTBot(MUCJabberBot):
                                 % chatter)
                 return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
 
-            with db.load_session() as s:
-                try:
-                    pack = s.query(db.Package).filter_by(id=args.id).one()
-                except Exception, e:
-                    logging.warning(e)
-                    logging.warning('%s tried to pickup non-existing package.'\
-                            % chatter)
-                    return 'No such package.'
+            s = db.load_session()
 
-                pack.hentet = True
-                pack.hentet_av = args.picker
-                pack.hentet_da = datetime.datetime.utcnow()
-                pack.registrert_hentet_av = chatter
+            try:
+                pack = s.query(db.Package).filter_by(id=args.id).one()
+            except Exception, e:
+                logging.warning(e)
+                logging.warning('%s tried to pickup non-existing package.'\
+                        % chatter)
+                return 'No such package.'
 
-                self.emailer.send_email(pack.email, 'Kvittering på hentet pakke %d'\
-                        % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
+            pack.hentet = True
+            pack.hentet_av = args.picker
+            pack.hentet_da = datetime.datetime.utcnow()
+            pack.registrert_hentet_av = chatter
+
+            s.commit()
+            s.close()
+
+            self.emailer.send_email(pack.email, 'Kvittering på hentet pakke %d'\
+                    % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
 
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
-            with db.load_session() as s:
-                rs = s.query(db.Package).order_by(db.Package.id.desc()).all()
+            s = db.load_session()
+            rs = s.query(db.Package).order_by(db.Package.id.desc()).all()
 
-                ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
+            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
-                counter = 1
-                for pack in rs:
-                    ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
-                            pack.date_added, pack.sender, pack.recipient,
-                            pack.enummer)
-                    counter += 1
-                    if counter == 10:
-                        break
+            counter = 1
+            for pack in rs:
+                ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
+                        pack.date_added, pack.sender, pack.recipient,
+                        pack.enummer)
+                counter += 1
+                if counter == 10:
+                    break
+
+            s.close()
 
             logging.info('%s listed last 10 packages.' % chatter)
             return ostring
@@ -291,42 +302,46 @@ class RTBot(MUCJabberBot):
             logging.info('%s used bad syntax for useradmin.' % chatter)
             return 'Usage: useradd op/user/list --jid username@domain'
 
-        with db.load_session() as s:
-            users = s.query(db.User).all()
+        s = db.load_session()
+        users = s.query(db.User).all()
 
-            if args.level == 'op':
-                if self.is_op(args.jid):
-                    return '%s is already an op.' % args.jid
+        if args.level == 'op':
+            if self.is_op(args.jid):
+                return '%s is already an op.' % args.jid
 
-                new_op = db.Op(jid=args.jid)
-                s.add(new_op)
-                s.commit()
+            new_op = db.Op(jid=args.jid)
+            s.add(new_op)
+            s.commit()
+            s.close()
 
-                logging.info('%s made %s an op.' % (chatter, args.jid))
-                return 'OK, made %s an op.' % args.jid
-            elif args.level == 'user':
-                if self.is_user(args.jid):
-                    return '%s is already a user.' % args.jid
+            logging.info('%s made %s an op.' % (chatter, args.jid))
+            return 'OK, made %s an op.' % args.jid
+        elif args.level == 'user':
+            if self.is_user(args.jid):
+                return '%s is already a user.' % args.jid
 
-                new_user = db.User(jid=args.jid)
-                s.add(new_user)
-                s.commit()
+            new_user = db.User(jid=args.jid)
+            s.add(new_user)
+            s.commit()
+            s.close()
 
-                logging.info('%s made %s a user.' % (chatter, args.jid))
-                return 'OK, made %s a user.' % args.jid
-            elif args.level == 'list':
-                ostring = '--- OPS: ---'
+            logging.info('%s made %s a user.' % (chatter, args.jid))
+            return 'OK, made %s a user.' % args.jid
+        elif args.level == 'list':
+            ostring = '--- OPS: ---'
 
-                for op in self.get_ops():
-                    ostring += '\n* %s' % op
+            for op in self.get_ops():
+                ostring += '\n* %s' % op.jid
 
-                ostring += '\n--- USERS: ---'
+            ostring += '\n--- USERS: ---'
 
-                for user in self.get_users():
-                    ostring += '\n* %s' % user
+            for user in self.get_users():
+                ostring += '\n* %s' % user.jid
 
-                logging.info('%s listed all users and ops.' % chatter)
-                return ostring
+            s.close()
+
+            logging.info('%s listed all users and ops.' % chatter)
+            return ostring
 
     @botcmd
     def listkoh(self, mess, args):
@@ -342,15 +357,20 @@ class RTBot(MUCJabberBot):
         output = ""
         counter = 0
 
-        with db.load_session() as s:
+        try:
+            s = db.load_session()
             rows = s.query(db.Besok).order_by(db.Besok.date.desc()).all()
+        except Exception, e:
+            print e
 
-            for row in rows:
-                output += '%10s: %4d\n' % (row.date, visitors)
-                counter += 1
+        for row in rows:
+            output += '%10s: %4d\n' % (row.date.strftime('%Y-%m-%d'), row.visitors)
+            counter += 1
 
-                if counter == 10:
-                    break
+            if counter == 10:
+                break
+
+        s.close()
 
         logging.info('%s listed last 10 koh visits.' % chatter)
         return output
@@ -378,6 +398,7 @@ class RTBot(MUCJabberBot):
         """
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         now = datetime.datetime.now()
+        d = now.strftime('%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
@@ -389,7 +410,7 @@ class RTBot(MUCJabberBot):
 
         try:
             args = parser.parse_args(words[1:])
-            datetime.datetime.strptime(args.date, '%Y-%m-%d')
+            date_parsed = datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
             logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
@@ -400,16 +421,17 @@ class RTBot(MUCJabberBot):
 
         if args.command == 'register':
             # Check if in future
-            if datetime.datetime.strptime(args.date, '%Y-%m-%d') > now:
+            if date_parsed > now:
                 logging.info('%s tried to register %d for %s ignored since in future.' % (chatter, args.visitors, args.date))
                 return 'You cannot register for dates in the future.'
 
-            with db.load_session() as s:
-                if s.query(exists().where(db.Besok.date==args.date)).scalar():
-                    return "This date is already registered."
+            s = db.load_session()
+            if s.query(exists().where(db.Besok.date==date_parsed)).scalar():
+                return "This date is already registered."
 
-                s.add(db.Besok(visitors=args.visitors, date=args.date))
-                s.commit()
+            s.add(db.Besok(visitors=args.visitors, date=date_parsed))
+            s.commit()
+            s.close()
 
             logging.info('%s registered %d koh-visitors for %s' \
                     % (chatter, args.visitors, args.date))
@@ -419,17 +441,18 @@ class RTBot(MUCJabberBot):
                 logging.info('%s (not op) tried to edit koh post.' % chatter)
                 return "You are not an op and cannot edit."
 
-            with db.load_session() as s:
-                try:
-                    besok = s.query(db.Besok).filter_by(date=args.date).one()
-                except Exception, e:
-                    logging.info('%s tried to edit non-existing data' % chatter)
-                    return "There is no data on this date yet."
+            s = db.load_session()
+            try:
+                besok = s.query(db.Besok).filter_by(date=date_parsed).one()
+            except Exception, e:
+                logging.info('%s tried to edit non-existing data' % chatter)
+                return "There is no data on this date yet."
 
-                old_value = besok.visitors
-                besok.visitors = args.visitors
+            old_value = besok.visitors
+            besok.visitors = args.visitors
 
-                s.commit()
+            s.commit()
+            s.close()
 
             logging.info('%s changed %d to %d for %s' % (chatter, old_value,
                 args.visitors, args.date))
@@ -505,12 +528,15 @@ class RTBot(MUCJabberBot):
 
         writer.writerow(['Date', 'Visitors'])
 
-        with db.load_session() as s:
-            rows = s.query(db.Besok).filter(db.Besok.date.between(args.start,
-                args.end)).order_by(db.Besok.date)
+        s = db.load_session()
 
-            for row in rows:
-                writer.writerow([row[0], row[1]])
+        rows = s.query(db.Besok).filter(db.Besok.date.between(args.start,
+            args.end)).order_by(db.Besok.date)
+
+        for row in rows:
+            writer.writerow([row.date, row.visitors])
+
+        s.close()
 
         csvfile.close()
 
@@ -527,12 +553,12 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
-    def muc_join_room(self, room, *args, **kwargs):
+    def join_room(self, room, *args, **kwargs):
         """
         Need a list of all joined rooms.
         """
         self.joined_rooms.append(room)
-        super(RTBot, self).muc_join_room(room, *args, **kwargs)
+        super(RTBot, self).join_room(room, *args, **kwargs)
 
     def _post(self, text):
         """
@@ -579,33 +605,37 @@ class RTBot(MUCJabberBot):
         """
         Returns list of all users.
         """
-        with db.load_session() as s:
-            users = s.query(db.User).all()
+        s = db.load_session()
+        users = s.query(db.User).all()
+        s.close()
         return users
 
     def get_ops(self):
         """
         Returns list of all users.
         """
-        with db.load_session() as s:
-            ops = s.query(db.Op).all()
+        s = db.load_session()
+        ops = s.query(db.Op).all()
+        s.close()
         return ops
 
     def is_op(self, chatter):
         """
         Returns True / False wether or not user is op.
         """
-        if chatter in self.get_ops():
-            return True
-        return False
+        s = db.load_session()
+        result = s.query(exists().where(db.Op.jid==chatter)).scalar()
+        s.close()
+        return result
 
     def is_user(self, chatter):
         """
         Returns True / False wether or not user is user.
         """
-        if chatter in self.get_users():
-            return True
-        return False
+        s = db.load_session()
+        result = s.query(exists().where(db.User.jid==chatter)).scalar()
+        s.close()
+        return result
 
     def is_authenticated(self, chatter):
         """
@@ -691,12 +721,15 @@ class RTBot(MUCJabberBot):
 
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
                 # Mail boss if KOH visits not registered
-                with db.load_session() as s:
-                    if not s.query(exists().where(db.Besok.date==now)).scalar():
-                        self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
-                                _FORGOTTEN_KOH)
-                        self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
-                                _FORGOTTEN_KOH)
+                s = db.load_session()
+
+                if not s.query(exists().where(db.Besok.date==now)).scalar():
+                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
+                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
+                            _FORGOTTEN_KOH)
+
+                s.close()
 
             # After this processes taking time can be put
             feed = feedparser.parse(_DRIFT_URL)
@@ -705,17 +738,21 @@ class RTBot(MUCJabberBot):
             newest_drift_title = sorted_entries[0]['title']
             already_posted = False
 
-            with db.load_session() as s:
-                if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
-                    already_posted = True
+            s = db.load_session()
+
+            if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
+                already_posted = True
+
+            s.close()
 
             if not already_posted:
                 self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
 
                 # Add this title to the list of printed titles
-                with db.load_session() as s:
-                    s.add(News(title=sorted_entries[0]['title']))
-                    s.commit()
+                s = db.load_session()
+                s.add(db.News(title=sorted_entries[0]['title']))
+                s.commit()
+                s.close()
 
             # Do a tick every minute
             for i in range(60):
@@ -724,7 +761,7 @@ class RTBot(MUCJabberBot):
                     return
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='rtbot.log', level=logging.INFO,
+    logging.basicConfig(filename='rtbot.log', level=logging.DEBUG,
             format='[%(asctime)s] %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -741,15 +778,18 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Gather chat credentials
-    chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
+    # chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
+    chat_username = 'benedicte@chat.uio.no'
     chat_password = getpass('Chat password: ')
-    chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
+    # chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
+    chat_admin = 'benedebr@chat.uio.no'
 
     # Write db-path file if not exists
     if not os.path.isfile(_PREFFILE):
         dbfile = raw_input('Path to sqlite db: ')
         with open(_PREFFILE, 'w') as ofile:
             ofile.write("%s\n" % dbfile)
+    import db
 
     # Write queues file
     filename = 'queues.txt'
@@ -796,13 +836,13 @@ if __name__ == '__main__':
         outfile.write('\n')
         outfile.close()
 
-        bot.muc_join_room(room, username=nickname)
+        bot.join_room(room, username=nickname)
     else:
         # If it does exist, loop through it and join all the rooms
         infile = open(args.rooms, 'r')
 
         for line in infile:
-            bot.muc_join_room(line.strip(), username=nickname)
+            bot.join_room(line.strip(), username=nickname)
 
         infile.close()
 
