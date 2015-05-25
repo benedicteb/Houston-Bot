@@ -32,6 +32,7 @@ from pyRT.src.RT import RTCommunicator
 from Emailer import Emailer
 
 _PREFFILE = 'dbpath.txt'
+_FEEDSFILE = 'rtbot.feeds.txt'
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
@@ -645,6 +646,36 @@ class RTBot(MUCJabberBot):
             return False
         return True
 
+    def check_post_rss(self):
+        if not os.path.isfile(_FEEDSFILE):
+            logging.warning("No rss feeds file '%s' found." % _FEEDSFILE)
+            return
+
+        with open(_FEEDSFILE, 'r') as ffile:
+            for line in ffile:
+                uri = line.strip()
+                feed = feedparser.parse(uri)
+                sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+                sorted_entries.reverse()
+                newest_drift_title = sorted_entries[0]['title']
+                already_posted = False
+
+                s = db.load_session()
+
+                if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
+                    already_posted = True
+
+                s.close()
+
+                if not already_posted:
+                    self._post(' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+
+                    # Add this title to the list of printed titles
+                    s = db.load_session()
+                    s.add(db.News(title=sorted_entries[0]['title']))
+                    s.commit()
+                    s.close()
+
     def thread_proc(self):
         spam_upper = 100        # Limit for sending "Time to take spam?"
         spam_last = 0           # Needed to not spam with spam noties
@@ -729,28 +760,9 @@ class RTBot(MUCJabberBot):
 
                 s.close()
 
-            # After this processes taking time can be put
-            feed = feedparser.parse(_DRIFT_URL)
-            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-            sorted_entries.reverse()
-            newest_drift_title = sorted_entries[0]['title']
-            already_posted = False
-
-            s = db.load_session()
-
-            if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
-                already_posted = True
-
-            s.close()
-
-            if not already_posted:
-                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
-
-                # Add this title to the list of printed titles
-                s = db.load_session()
-                s.add(db.News(title=sorted_entries[0]['title']))
-                s.commit()
-                s.close()
+            # Thread for checking rss
+            th = threading.Thread(target=self.check_post_rss)
+            th.start()
 
             # Do a tick every minute
             for i in range(60):
