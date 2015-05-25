@@ -677,14 +677,6 @@ class RTBot(MUCJabberBot):
                     s.close()
 
     def thread_proc(self):
-        spam_upper = 100        # Limit for sending "Time to take spam?"
-        spam_last = 0           # Needed to not spam with spam noties
-        utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
-
-        # Triggers for special notifications
-        sendspam = False
-        sendutskrift = False
-
         while not self.thread_killed:
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
@@ -693,19 +685,6 @@ class RTBot(MUCJabberBot):
                 for queue in self.queues:
                     tot = self.RT.get_no_all_open(queue)
                     unowned = self.RT.get_no_unowned_open(queue)
-
-                    if queue == 'spam-suspects':
-                        # Only notify on lots of spam if number is less than
-                        # last run
-                        if tot > spam_upper and tot < spam_last:
-                            sendspam = True
-
-                        # Update number of spam last run
-                        spam_last = tot
-
-                    if queue == 'houston-utskrift' and tot > utskrift_tot:
-                        sendutskrift = True
-                        utskrift_tot = tot
 
                     if tot > 0:
                         text = "'%s' : %d unowned of total %d tickets."\
@@ -718,16 +697,6 @@ class RTBot(MUCJabberBot):
                     self._post(self.godmorgen())
                 if now.hour == end:
                     self._post(self.godkveld())
-
-            if sendspam and now.hour != end:
-                text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
-                self._post(text)
-                sendspam = False
-
-            if sendutskrift and now.hour != end:
-                text = "Det har kommet en ny sak i 'houston-utskrift'!"
-                self._post(text)
-                sendutskrift = False
 
             if now.minute == 0 and now.hour == start:
                 # Start counting
@@ -750,10 +719,21 @@ class RTBot(MUCJabberBot):
                 text = "Nå kan en begynne å tenke på kveldsrunden!"
                 self._post(text)
 
+            if now.minute == 55 and now.hour == 14:
+                text = "Husk å registrere antall besøkende!"
+                self._post(text)
+
+            if now.minute == 0 and now.hour == 15:
+                text = "Nå stenger KOH!"
+                self._post(text)
+
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
                 s = db.load_session()
 
                 if not s.query(exists().where(db.Besok.date==now)).scalar():
+                    text = "Det ble ikke registrert antall besøkende i dag.. Sender epost!"
+                    self._post(text)
+
                     self.emailer.send_email('houston-forstelinje-ansatte@usit.uio.no',
                             'Glemt KOH registreringer',
                             _FORGOTTEN_KOH)
