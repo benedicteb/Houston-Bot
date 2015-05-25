@@ -720,13 +720,11 @@ class RTBot(MUCJabberBot):
                 self._post(text)
 
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
-                # Mail boss if KOH visits not registered
                 s = db.load_session()
 
                 if not s.query(exists().where(db.Besok.date==now)).scalar():
-                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
-                            _FORGOTTEN_KOH)
-                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
+                    self.emailer.send_email('houston-forstelinje-ansatte@usit.uio.no',
+                            'Glemt KOH registreringer',
                             _FORGOTTEN_KOH)
 
                 s.close()
