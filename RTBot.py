@@ -9,6 +9,7 @@ import re
 import os
 import logging
 import datetime
+import random
 import threading
 import argparse
 
@@ -493,13 +494,41 @@ class RTBot(MUCJabberBot):
         """
         Si god morgen.
         """
-        return "God morgen, førstelinja!"
+        hilsen = "God morgen, førstelinja! "
+
+        ekstra = [
+            "Hva skjer?",
+            "Ønsker dere en fin dag!",
+            "Jeg føler at dette blir en effektiv dag.",
+            "Er det fint vær i dag?",
+            "Ikke glem å spise frokost.",
+            "Æsj, hvor ble det av kaffen min?",
+            "... Where there's a whip, there's a way!",
+            "Hold the waterworks till the end of the day there hun'",
+            "Kommer det mange pakker i dag?",
+            "Har lokal-IT kommet på jobb tro?",
+            "Føler meg ikke bra jeg, sov så dårlig i natt..",
+            "We're workin' nine to five!",
+            "Dere er awesome!",
+            "Hvor mange brukere tror vi det kommer innom i dag?",
+            "Husk å vise HF at dere liker dem litt, viktig med kjærlighet.",
+            "Har dere husket å logge på telefonene?",
+            "Kom med flere idéer til hva jeg kan si om morgenen. Ække så lett å finne på ting..",
+            "Jeg er glad i dere!",
+            "Kos dere på jobb!",
+            "Lykke til med jobb!",
+            "Dere er kule!",
+            "This was a triumph, I'm making a note here, HUGE SUCCESS!",
+            "The cake is a lie.",
+        ]
+
+        return hilsen + random.choice(ekstra)
 
     def godkveld(self):
         """
         Si god kveld.
         """
-        return "God kveld 'a! Nå har dere fortjent litt fri :)"
+        return "God kveld alle sammen!"
 
     @botcmd
     def exportkoh(self, mess, args):
