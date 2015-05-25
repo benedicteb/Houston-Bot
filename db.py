@@ -7,6 +7,7 @@ Database schema.
 """
 from sqlalchemy import Column, DateTime, String, Integer, Boolean, create_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 import datetime
 
@@ -27,7 +28,8 @@ class Besok(Base):
     id = Column(Integer, primary_key=True)
 
     visitors = Column(Integer, nullable=False)
-    date = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    date = Column(DateTime, nullable=False, default=datetime.datetime.utcnow,
+            unique=True)
 
 class Op(Base):
     __tablename__ = 'ops'
@@ -70,3 +72,6 @@ class Package(Base):
     registrert_hentet_av = Column(String)
 
 Base.metadata.create_all(engine)
+
+def load_session():
+    return sessionmaker(bind=engine)
