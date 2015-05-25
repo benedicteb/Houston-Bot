@@ -797,11 +797,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Gather chat credentials
-    # chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
-    chat_username = 'benedicte@chat.uio.no'
+    chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
-    # chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
-    chat_admin = 'benedebr@chat.uio.no'
+    chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
 
     # Write db-path file if not exists
     if not os.path.isfile(_PREFFILE):
