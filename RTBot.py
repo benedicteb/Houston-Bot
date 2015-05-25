@@ -694,7 +694,7 @@ class RTBot(MUCJabberBot):
                 if s.query(exists().where(db.News.title==ndt)).scalar():
                     dup = s.query(db.News).filter_by(source=uri,title=ndt).one()
 
-                    if dup.source == uri and dup.published > datetime.fromtimestap(time.mktime(sorted_entries[0]['published_parsed'])):
+                    if dup.source == uri and dup.published > datetime.datetime.fromtimestap(time.mktime(sorted_entries[0]['published_parsed'])):
                         already_posted = True
 
                 s.close()
