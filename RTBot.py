@@ -704,7 +704,7 @@ class RTBot(MUCJabberBot):
             already_posted = False
 
             with db.load_session() as s:
-                if s.query(exists().where(db.News.title=newest_drift_title)).scalar():
+                if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
                     already_posted = True
 
             if not already_posted:
