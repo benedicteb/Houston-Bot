@@ -25,7 +25,10 @@ import shlex
 
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
+from sqlalchemy import func
+
 from pyRT.src.RT import RTCommunicator
+import db
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
@@ -129,34 +132,12 @@ class MUCJabberBot(JabberBot):
         return super(MUCJabberBot, self).callback_message(conn, mess)
 
 class RTBot(MUCJabberBot):
-    def __init__(self, username, password, queues, admin, db='rtbot.db'):
+    def __init__(self, username, password, queues, admin):
         """
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
         self.queues, self.db, self.admin = queues, db, admin
-
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        # Create database tables
-        c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
-                     (date text, visitors integer)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS ops
-                     (jid text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS users
-                     (jid text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS rss
-                     (title text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS pakker
-                     (recipient TEXT, sender TEXT, enummer TEXT, email TEXT, id
-                     INTEGER PRIMARY KEY, notes TEXT, date_added TEXT, hentet
-                     INTEGER, hentet_av TEXT, hentet_da TEXT, registrert_av TEXT,
-                     registrert_hentet_av TEXT)""")
-
-        dbconn.commit()
-        dbconn.close()
-
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
@@ -196,39 +177,23 @@ class RTBot(MUCJabberBot):
             now = datetime.datetime.now()
             dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('%s attempt nypakke failed, no db connection.'\
-                        % chatter)
-                return 'Error, could not connect to database.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT max(id) FROM pakker')
-            max_id = c.fetchone()[0]
+            with db.load_session() as s:
+                max_id = s.query(func.max(db.Package))
 
             if max_id == None:
                 new_id = 0
             else:
                 new_id = max_id + 1
 
-            indata = (args.recipient, args.sender, args.enummer, args.email,
-                    new_id, args.notes, dt_str, 0, '', '', chatter, '')
-            instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
-
-            try:
-                c.execute(instr, indata)
-            except:
-                dbconn.close()
-                logging.warning('Adding nypakke to db failed for line\n  %s'\
-                        % str(indata) )
-                return 'Unable to save nypakke to database.'
+            new_package = db.Package(recipient=args.recipient,
+                    sender=args.sender, enummer=args.enummer, email=args.email,
+                    notes=args.notes, registrert_av=chatter)
+            with db.load_session() as s:
+                s.add(new_package)
+                s.commit()
 
             logging.info('%s added package-line\n  "%s"'\
                     % (chatter, str(indata)))
-
-            dbconn.commit()
-            dbconn.close()
 
             if args.enummer:
                 self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
@@ -241,21 +206,15 @@ class RTBot(MUCJabberBot):
 
             return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
         elif args.command == 'uhentede':
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.error('Listing packages failed due to no db connection.')
-                return 'Could not connect to database.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker WHERE hentet=?', (0,))
-            rs = c.fetchall()
-            dbconn.close()
+            with db.load_session() as s:
+                s.query(db.Package).filter_by(hentet=False).all()
 
             ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
             for pack in rs:
-                ostring += '\n%5d %20s %20s %20s %10s' % pack
+                ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
+                        pack.date_added, pack.sender, pack.recipient,
+                        pack.enummer)
 
             logging.info('%s listed all un-fetched packages.' % chatter)
             return ostring
@@ -265,96 +224,45 @@ class RTBot(MUCJabberBot):
                                 % chatter)
                 return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
 
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
+            with db.load_session() as s:
+                try:
+                    pack = s.query(db.Package).filter_by(id=args.id).one()
+                except Exception, e:
+                    logging.warning(e)
+                    logging.warning('%s tried to pickup non-existing package.'\
+                            % chatter)
+                    return 'No such package.'
 
-            c = dbconn.cursor()
-            c.execute('SELECT email FROM pakker WHERE id=?', ( args.id, ))
-            rs = c.fetchone()
-            dbconn.close()
+                pack.hentet = True
+                pack.hentet_av = args.picker
+                pack.hentet_da = datetime.datetime.utcnow()
+                pack.registrert_hentet_av = chatter
 
-            email = rs[0]
-
-            if not rs:
-                logging.warning('%s tried to pickup non-existing package.'\
-                        % chatter)
-                return 'No such package.'
-
-            now = datetime.datetime.now()
-            dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
-
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
-
-            c = dbconn.cursor()
-            c.execute("""UPDATE pakker SET
-                         hentet=?,hentet_av=?,hentet_da=?,registrert_hentet_av=?
-                         WHERE id=?""", ( 1, args.picker, dt_str, chatter, args.id))
-            dbconn.commit()
-            dbconn.close()
-
-            self.emailer.send_email(email, 'Kvittering på hentet pakke %d'\
-                    % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
+                self.emailer.send_email(pack.email, 'Kvittering på hentet pakke %d'\
+                        % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
 
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
+            with db.load_session() as s:
+                rs = s.query(db.Package).order_by(db.Package.id.desc()).all()
 
-            c = dbconn.cursor()
-            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker ORDER BY date_added DESC')
-            rs = c.fetchall()
-            dbconn.close()
+                ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
-            ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
-
-            counter = 1
-            for pack in rs:
-                ostring += '\n%5d %20s %20s %20s %10s' % pack
-                counter += 1
-                if counter == 10:
-                    break
+                counter = 1
+                for pack in rs:
+                    ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
+                            pack.date_added, pack.sender, pack.recipient,
+                            pack.enummer)
+                    counter += 1
+                    if counter == 10:
+                        break
 
             logging.info('%s listed last 10 packages.' % chatter)
             return ostring
         elif args.command == 'show':
             if args.id == None:
                 return 'You can only show with id.'
-
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
-            rs = c.fetchone()
-            dbconn.close()
-
-            if not rs:
-                logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
-                return 'No package with the id %d.' % args.id
-
-            columns = ["Recipient", "Sender", "E-nummer", "Email", "Id",
-                    "Notes", "Date added", "Hentet", "Hentet av", "Hentet når",
-                    "Registrert av", "Registrert hentet av"]
-
-            ostring = ''
-
-            for col,val in zip(columns, rs):
-                ostring += '\n%20s: %20s' % (col,str(val))
-
-            return ostring
+            return "Not implemented yet."
 
     @botcmd
     def useradmin(self, mess, args):
@@ -362,8 +270,6 @@ class RTBot(MUCJabberBot):
         Can be used to set user permissions and add users.
         """
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
         chatter, resource = str(mess.getFrom()).split('/')
 
         if not self.is_op(chatter) and chatter != self.admin:
@@ -380,56 +286,45 @@ class RTBot(MUCJabberBot):
         try:
             args = parser.parse_args(words[1:])
         except:
-            dbconn.close()
             logging.info('%s used bad syntax for useradmin.' % chatter)
             return 'Usage: useradd op/user/list --jid username@domain'
 
-        c.execute('SELECT * FROM users')
-        users = c.fetchall()
+        with db.load_session() as s:
+            users = s.query(db.User).all()
 
-        if args.level == 'op':
-            if self.is_op(args.jid):
-                dbconn.close()
-                return '%s is already an op.' % args.jid
+            if args.level == 'op':
+                if self.is_op(args.jid):
+                    return '%s is already an op.' % args.jid
 
-            t = ( args.jid, )
-            c.execute('INSERT INTO ops VALUES (?)', t)
-            dbconn.commit()
-            dbconn.close()
+                new_op = db.Op(jid=args.jid)
+                s.add(new_op)
+                s.commit()
 
-            logging.info('%s made %s an op.' % (chatter, args.jid))
+                logging.info('%s made %s an op.' % (chatter, args.jid))
+                return 'OK, made %s an op.' % args.jid
+            elif args.level == 'user':
+                if self.is_user(args.jid):
+                    return '%s is already a user.' % args.jid
 
-            return 'OK, made %s an op.' % args.jid
-        elif args.level == 'user':
-            if self.is_user(args.jid):
-                dbconn.close()
-                return '%s is already a user.' % args.jid
+                new_user = db.User(jid=args.jid)
+                s.add(new_user)
+                s.commit()
 
-            t = ( args.jid, )
-            c.execute('INSERT INTO users VALUES (?)', t)
-            dbconn.commit()
+                logging.info('%s made %s a user.' % (chatter, args.jid))
+                return 'OK, made %s a user.' % args.jid
+            elif args.level == 'list':
+                ostring = '--- OPS: ---'
 
-            logging.info('%s made %s a user.' % (chatter, args.jid))
+                for op in self.get_ops():
+                    ostring += '\n* %s' % op
 
-            dbconn.close()
-            return 'OK, made %s a user.' % args.jid
-        elif args.level == 'list':
-            ostring = '--- OPS: ---'
+                ostring += '\n--- USERS: ---'
 
-            for op in self.get_ops():
-                ostring += '\n* %s' % op
+                for user in self.get_users():
+                    ostring += '\n* %s' % user
 
-            ostring += '\n--- USERS: ---'
-
-            c.execute('SELECT * FROM users')
-            users = c.fetchall()
-
-            for user in self.get_users():
-                ostring += '\n* %s' % user
-
-            logging.info('%s listed all users and ops.' % chatter)
-            dbconn.close()
-            return ostring
+                logging.info('%s listed all users and ops.' % chatter)
+                return ostring
 
     @botcmd
     def listkoh(self, mess, args):
@@ -437,27 +332,25 @@ class RTBot(MUCJabberBot):
         Lists last 10 entries in kos table.
         """
         chatter, resource = str(mess.getFrom()).split('/')
-        now = datetime.datetime.now()
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
 
         if not self.is_user(chatter) and not self.is_op(chatter):
-            dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
         output = ""
         counter = 0
-        for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
-            output += '%10s: %4d\n' % (row[0], int(row[1]))
-            counter += 1
 
-            if counter == 10:
-                break
+        with db.load_session() as s:
+            rows = s.query(db.Besok).order_by(db.Besok.date.desc()).all()
+
+            for row in rows:
+                output += '%10s: %4d\n' % (row.date, visitors)
+                counter += 1
+
+                if counter == 10:
+                    break
 
         logging.info('%s listed last 10 koh visits.' % chatter)
-
-        dbconn.close()
         return output
 
     @botcmd
@@ -483,7 +376,6 @@ class RTBot(MUCJabberBot):
         """
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         now = datetime.datetime.now()
-        d = datetime.datetime.strftime(now, '%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
@@ -500,67 +392,48 @@ class RTBot(MUCJabberBot):
             logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
         if not self.is_user(chatter) and not self.is_op(chatter):
-            dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
         if args.command == 'register':
             # Check if in future
             if datetime.datetime.strptime(args.date, '%Y-%m-%d') > now:
-                dbconn.close()
                 logging.info('%s tried to register %d for %s ignored since in future.' % (chatter, args.visitors, args.date))
                 return 'You cannot register for dates in the future.'
 
-            # Check if already registered this date
-            t = ( args.date, )
-            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
-            if c.fetchone():
-                dbconn.close()
-                return "This date is already registered."
+            with db.load_session() as s:
+                if s.query(exists().where(db.Besok.date==args.date)).scalar():
+                    return "This date is already registered."
 
-            t = ( args.date, args.visitors )
-
-            c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
-            dbconn.commit()
+                s.add(db.Besok(visitors=args.visitors, date=args.date))
+                s.commit()
 
             logging.info('%s registered %d koh-visitors for %s' \
                     % (chatter, args.visitors, args.date))
-
-            dbconn.close()
-
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
             if not self.is_op(chatter):
-                dbconn.close()
                 logging.info('%s (not op) tried to edit koh post.' % chatter)
                 return "You are not an op and cannot edit."
 
-            # Update an existing row
-            c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
-            rs = c.fetchone()
-            if not rs:
-                dbconn.close()
-                logging.info('%s tried to edit non-existing data' % chatter)
-                return "There is no data on this date yet."
+            with db.load_session() as s:
+                try:
+                    besok = s.query(db.Besok).filter_by(date=args.date).one()
+                except Exception, e:
+                    logging.info('%s tried to edit non-existing data' % chatter)
+                    return "There is no data on this date yet."
 
-            old_value = rs[1]
+                old_value = besok.visitors
+                besok.visitors = args.visitors
 
-            c.execute('UPDATE kohbesok SET visitors=? where date=?',
-                    (args.visitors, args.date))
-            dbconn.commit()
+                s.commit()
 
             logging.info('%s changed %d to %d for %s' % (chatter, old_value,
                 args.visitors, args.date))
 
-            dbconn.close()
-
             return "OK, updated data for %s. Changed %d to %d."\
                     % (args.date, old_value, args.visitors)
-
 
     @botcmd
     def rtinfo(self, mess, args):
@@ -626,14 +499,16 @@ class RTBot(MUCJabberBot):
         writer = csv.writer(csvfile, delimiter=' ',
                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
         logging.info('Finding all kohbesok between %s and %s' % (args.start, args.end))
 
         writer.writerow(['Date', 'Visitors'])
-        for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
-            writer.writerow([row[0], row[1]])
+
+        with db.load_session() as s:
+            rows = s.query(db.Besok).filter(db.Besok.date.between(args.start,
+                args.end)).order_by(db.Besok.date)
+
+            for row in rows:
+                writer.writerow([row[0], row[1]])
 
         csvfile.close()
 
@@ -702,26 +577,16 @@ class RTBot(MUCJabberBot):
         """
         Returns list of all users.
         """
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        c.execute('SELECT * FROM users')
-        users = [elm[0] for elm in c.fetchall()]
-
-        dbconn.close()
+        with db.load_session() as s:
+            users = s.query(db.User).all()
         return users
 
     def get_ops(self):
         """
         Returns list of all users.
         """
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        c.execute('SELECT * FROM ops')
-        ops = [elm[0] for elm in c.fetchall()]
-
-        dbconn.close()
+        with db.load_session() as s:
+            ops = s.query(db.Op).all()
         return ops
 
     def is_op(self, chatter):
@@ -824,23 +689,12 @@ class RTBot(MUCJabberBot):
 
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
                 # Mail boss if KOH visits not registered
-                dbconn = sqlite3.connect(self.db)
-                c = dbconn.cursor()
-
-                # Count if there is a registration today
-                d = datetime.datetime.strftime(now, '%Y-%m-%d')
-                t = (d,)
-                c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ) )
-                rs = c.fetchone()
-
-                if not rs:
-                    # No data registered today, send notification
-                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
-                            _FORGOTTEN_KOH)
-                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
-                            _FORGOTTEN_KOH)
-
-                dbconn.close()
+                with db.load_session() as s:
+                    if not s.query(exists().where(db.Besok.date==now)).scalar():
+                        self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
+                                _FORGOTTEN_KOH)
+                        self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
+                                _FORGOTTEN_KOH)
 
             # After this processes taking time can be put
             feed = feedparser.parse(_DRIFT_URL)
@@ -849,36 +703,17 @@ class RTBot(MUCJabberBot):
             newest_drift_title = sorted_entries[0]['title']
             already_posted = False
 
-            try:
-                dbconn = sqlite3.connect(self.db)
-                c = dbconn.cursor()
-
-                c.execute('SELECT * FROM rss WHERE title=?',
-                        ( newest_drift_title, ) )
-                rs = c.fetchone()
-
-                dbconn.close()
-
-                if rs:
+            with db.load_session() as s:
+                if s.query(exists().where(db.News.title=newest_drift_title)).scalar():
                     already_posted = True
-            except:
-                logging.warning('Could not check for newest title in rss table.')
 
             if not already_posted:
                 self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
 
                 # Add this title to the list of printed titles
-                try:
-                    dbconn = sqlite3.connect(self.db)
-                    c = dbconn.cursor()
-
-                    c.execute('INSERT INTO rss VALUES (?)',
-                            ( sorted_entries[0]['title'], ))
-
-                    dbconn.commit()
-                    dbconn.close()
-                except:
-                    logging.warning('Could not connect to db for rss title storage.')
+                with db.load_session() as s:
+                    s.add(News(title=sorted_entries[0]['title']))
+                    s.commit()
 
             # Do a tick every minute
             for i in range(60):
