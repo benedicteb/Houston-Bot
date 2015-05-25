@@ -30,6 +30,8 @@ from sqlalchemy import func
 from pyRT.src.RT import RTCommunicator
 import db
 
+_PREFFILE = 'dbpath.txt'
+
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
 u"""
@@ -742,6 +744,12 @@ if __name__ == '__main__':
     chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
     chat_password = getpass('Chat password: ')
     chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
+
+    # Write db-path file if not exists
+    if not os.path.isfile(_PREFFILE):
+        dbfile = raw_input('Path to sqlite db: ')
+        with open(_PREFFILE, 'w') as ofile:
+            ofile.write("%s\n" % dbfile)
 
     # Write queues file
     filename = 'queues.txt'
