@@ -686,13 +686,16 @@ class RTBot(MUCJabberBot):
                 feed = feedparser.parse(uri)
                 sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
                 sorted_entries.reverse()
-                newest_drift_title = sorted_entries[0]['title']
+                ndt = sorted_entries[0]['title']
                 already_posted = False
 
                 s = db.load_session()
 
-                if s.query(exists().where(db.News.title==newest_drift_title)).scalar():
-                    already_posted = True
+                if s.query(exists().where(db.News.title==ndt)).scalar():
+                    dup = s.query(db.News).filter_by(source=uri,title=ndt).one()
+
+                    if dup.source == uri and dup.published > sorted_entries[0]['published_parsed']:
+                        already_posted = True
 
                 s.close()
 
@@ -701,7 +704,8 @@ class RTBot(MUCJabberBot):
 
                     # Add this title to the list of printed titles
                     s = db.load_session()
-                    s.add(db.News(title=sorted_entries[0]['title']))
+                    s.add(db.News(title=sorted_entries[0]['title'],
+                        source=uri))
                     s.commit()
                     s.close()
 
