@@ -876,8 +876,11 @@ if __name__ == '__main__':
     import db
 
     # Join MUC rooms
-    for room in prefs['rooms']:
-        bot.join_room(room, username=_BOT_NICK)
+    if isinstance(prefs['rooms'], str):
+        bot.join_room(prefs['rooms'], username=_BOT_NICK)
+    else:
+        for room in prefs['rooms']:
+            bot.join_room(room, username=_BOT_NICK)
 
     # Start the bot
     th = threading.Thread(target=bot.thread_proc)
