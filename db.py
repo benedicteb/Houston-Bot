@@ -22,7 +22,7 @@ if not os.path.isfile(_PREFFILE):
     sys.exit(0)
 _PREFS = read_prefs(_PREFFILE)
 
-engine = create_engine('sqlite:///%s' % _PRFS['dbpath'])
+engine = create_engine('sqlite:///%s' % _PREFS['dbpath'])
 Base = declarative_base()
 
 class Besok(Base):

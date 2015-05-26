@@ -877,7 +877,7 @@ if __name__ == '__main__':
 
     # Join MUC rooms
     for room in prefs['rooms']:
-        bot.join(room, username=_BOT_NICK)
+        bot.join_room(room, username=_BOT_NICK)
 
     # Start the bot
     th = threading.Thread(target=bot.thread_proc)
