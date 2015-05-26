@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 """
 Takes all kohbesok from given arg 1 and adds to db governed på db file.
 
