@@ -14,7 +14,7 @@ from email.mime.text import MIMEText
 from getpass import getpass
 
 class Emailer(object):
-    def __init__(self, username=False, password=False, addr=False):
+    def __init__(self, username=False, password=False):
         """
         """
         self.smtp = 'smtp.uio.no'
@@ -27,7 +27,8 @@ class Emailer(object):
         if not addr:
             addr = raw_input('UiO-mail address: ')
 
-        self.username, self.password, self.addr = username, password, addr
+        self.username, self.password = username, password
+        self.addr = self.username + '@ulrik.uio.no'
 
         try:
             server = smtplib.SMTP_SSL(self.smtp, self.port)
