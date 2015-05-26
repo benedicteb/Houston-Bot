@@ -44,10 +44,12 @@ class User(Base):
 class News(Base):
     __tablename__ = 'rss'
 
-    title = Column(String, nullable=False, primary_key=True)
+    id = Column(Integer, primary_key=True)
+
+    title = Column(String, nullable=False)
     published = Column(DateTime, nullable=False,
             default=datetime.datetime.utcnow)
-    source = Column(String, nullable=False, unique=True)
+    source = Column(String, nullable=False)
 
 class Package(Base):
     __tablename__ = 'pakker'

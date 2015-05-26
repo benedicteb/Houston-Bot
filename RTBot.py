@@ -684,28 +684,46 @@ class RTBot(MUCJabberBot):
             for line in ffile:
                 uri = line.strip()
                 feed = feedparser.parse(uri)
+
                 sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
                 sorted_entries.reverse()
                 ndt = sorted_entries[0]['title']
+
+                updated =\
+                    datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['updated_parsed']))
+                published =\
+                    datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['published_parsed']))
+
                 already_posted = False
 
                 s = db.load_session()
 
                 if s.query(exists().where(db.News.title==ndt)).scalar():
+                    logging.info("'%s' is in db. Post again? Published: %s, updated: %s"\
+                                    % (ndt, published, updated))
+
                     dup = s.query(db.News).filter_by(source=uri,title=ndt).one()
 
-                    if dup.source == uri and dup.published > datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['published_parsed'])):
+                    if not updated > dup.published:
+                        logging.info("'%s' was not new, skipping posting." % ndt)
                         already_posted = True
+                    else:
+                        # Delete old record
+                        logging.info("'%s' was old, deleting row for adding of new." % ndt)
+                        s.delete(dup)
+                        s.commit()
 
                 s.close()
 
                 if not already_posted:
                     self._post(' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
 
+                    logging.info("Posted rss title '%s' from '%s' and added to db."\
+                                    % (ndt, uri))
+
                     # Add this title to the list of printed titles
                     s = db.load_session()
-                    s.add(db.News(title=sorted_entries[0]['title'],
-                        source=uri))
+                    s.add(db.News(title=ndt, source=uri, published=updated))
                     s.commit()
                     s.close()
 
@@ -784,7 +802,7 @@ class RTBot(MUCJabberBot):
                     return
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='rtbot.log', level=logging.DEBUG,
+    logging.basicConfig(filename='rtbot.log', level=logging.INFO,
             format='[%(asctime)s] %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S')
 
