@@ -813,7 +813,11 @@ def read_prefs(path):
     with open(path, 'r') as preffile:
         for line in preffile:
             key,value = line.strip().split('----')
-            prefs[key] = value
+
+            if len(value.split(',')) != 1:
+                prefs[key] = value.split(',')
+            else:
+                prefs[key] = value
 
     return prefs
 
@@ -822,7 +826,10 @@ def write_prefs(data, path):
     """
     with open(path, 'w') as preffile:
         for key,value in data.iteritems():
-            preffile.write(_PREFSEP.join([key,value]) + "\n")
+            if isinstance(value, list):
+                preffile.write(key + _PREFSEP + ','.join(value) + '\n')
+            else:
+                preffile.write(_PREFSEP.join([key,value]) + "\n")
 
 if __name__ == '__main__':
     logging.basicConfig(filename='rtbot.log', level=logging.INFO,
