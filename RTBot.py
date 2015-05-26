@@ -781,7 +781,9 @@ class RTBot(MUCJabberBot):
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
                 s = db.load_session()
 
-                if not s.query(exists().where(db.Besok.date==now)).scalar():
+                now_parsed = datetime.datetime.strptime(now.strftime('%Y-%m-%d'), '%Y-%m-%d')
+
+                if not s.query(exists().where(db.Besok.date==now_parsed)).scalar():
                     text = "Det ble ikke registrert antall besøkende i dag.. Sender epost!"
                     self._post(text)
 
