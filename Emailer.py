@@ -24,8 +24,6 @@ class Emailer(object):
             username = raw_input('Username (UiO-mail): ')
         if not password:
             password = getpass('Password (UiO-mail): ')
-        if not addr:
-            addr = raw_input('UiO-mail address: ')
 
         self.username, self.password = username, password
         self.addr = self.username + '@ulrik.uio.no'

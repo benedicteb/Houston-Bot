@@ -32,8 +32,10 @@ from sqlalchemy.sql import exists
 from pyRT.src.RT import RTCommunicator
 from Emailer import Emailer
 
-_PREFFILE = 'dbpath.txt'
+_PREFFILE = 'prefs.txt'
 _FEEDSFILE = 'rtbot.feeds.txt'
+_PREFSEP = '----'
+_BOT_NICK = 'Anna'
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
@@ -142,7 +144,7 @@ class RTBot(MUCJabberBot):
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
-        self.queues, self.db, self.admin = queues, db, admin
+        self.queues, self.admin = queues, admin
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
@@ -803,93 +805,84 @@ class RTBot(MUCJabberBot):
                 if self.thread_killed:
                     return
 
+def read_prefs(path):
+    """
+    """
+    prefs = {}
+
+    with open(path, 'r') as preffile:
+        for line in preffile:
+            key,value = line.strip().split('----')
+
+            if len(value.split(',')) != 1:
+                prefs[key] = value.split(',')
+            else:
+                prefs[key] = value
+
+    return prefs
+
+def write_prefs(data, path):
+    """
+    """
+    with open(path, 'w') as preffile:
+        for key,value in data.iteritems():
+            if isinstance(value, list):
+                preffile.write(key + _PREFSEP + ','.join(value) + '\n')
+            else:
+                preffile.write(_PREFSEP.join([key,value]) + "\n")
+
 if __name__ == '__main__':
     logging.basicConfig(filename='rtbot.log', level=logging.INFO,
             format='[%(asctime)s] %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S')
 
-    # Parse commandline
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--rooms', help='Textfile with XMPP rooms one per line.',
-        default='default_rooms.txt', type=str)
-    parser.add_argument('--queues', help='Which queues to broadcast status from.',
-        type=str)
-    parser.add_argument('--broadcast', help='Should bot broadcast queue status?',
-        action='store_true')
-
-    args = parser.parse_args()
-
-    # Gather chat credentials
-    chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
-    chat_password = getpass('Chat password: ')
-    chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
-
-    # Write db-path file if not exists
     if not os.path.isfile(_PREFFILE):
-        dbfile = raw_input('Path to sqlite db: ')
-        with open(_PREFFILE, 'w') as ofile:
-            ofile.write("%s\n" % dbfile)
-    import db
+        prefs = {}
+        prefs['chat_user'] = raw_input('Chat username (remember @chat.uio.no if UiO): ')
+        prefs['super_user'] = raw_input('JID (username@chatdomain) who can administrate bot: ')
+        prefs['email_user'] = raw_input('E-mail username: ')
+        prefs['rt_user'] = raw_input('RT username: ')
+        prefs['rooms'] = raw_input('Chat rooms to be in: ')
+        prefs['queues'] = raw_input('Queues to post hourly status for: ')
+        prefs['dbpath'] = raw_input('Path to db: ')
+        write_prefs(prefs, _PREFFILE)
+    else:
+        prefs = read_prefs(_PREFFILE)
 
-    # Write queues file
-    filename = 'queues.txt'
-    queue = []
-    if args.broadcast:
-        if not os.path.isfile(filename):
-            # If room-file doesnt exist, ask for a room and create the file
-            queue = raw_input('Queue to broadcast status from: ')
-
-            outfile = open(filename, 'w')
-            outfile.write(queue)
-            outfile.write('\n')
-            outfile.close()
-
-            queue = [queue]
-        else:
-            # If it does exist, loop through it and list all queues
-            infile = open(filename, 'r')
-
-            for line in infile:
-                queue.append(line.strip())
-
-            infile.close()
+    # Gather passwords
+    chat_pass = getpass('Chat password for %s: ' % prefs['chat_user'])
 
     # Initiate bot
-    bot = RTBot(chat_username, chat_password, queue, admin=chat_admin)
+    bot = RTBot(prefs['chat_user'], chat_pass, prefs['queues'],
+            admin=prefs['super_user'])
 
-    # Give RT communicator
-    bot.give_RT_conn(RTCommunicator())
+    if prefs['email_user'] == prefs['rt_user']:
+        email_rt_pass = getpass('Email / RT password for %s: ' % prefs['email_user'])
 
-    # Give Emailer
-    bot.give_emailer(Emailer())
-
-    # Bot nickname
-    nickname = 'Anna'
-
-    # Write rooms file
-    if not os.path.isfile(args.rooms):
-        # If room-file doesnt exist, ask for a room and create the file
-        room = raw_input('Room to join: ')
-
-        outfile = open(args.rooms, 'w')
-        outfile.write(room)
-        outfile.write('\n')
-        outfile.close()
-
-        bot.join_room(room, username=nickname)
+        bot.give_RT_conn(RTCommunicator(username=prefs['rt_user'],
+            password=email_rt_pass))
+        bot.give_emailer(Emailer(username=prefs['email_user'],
+            password=email_rt_pass))
     else:
-        # If it does exist, loop through it and join all the rooms
-        infile = open(args.rooms, 'r')
+        email_pass = getpass('Email password for %s: ' % prefs['email_user'])
+        rt_pass = getpass('RT password for %s: ' % prefs['rt_user'])
 
-        for line in infile:
-            bot.join_room(line.strip(), username=nickname)
+        bot.give_RT_conn(RTCommunicator(username=prefs['rt_user'],
+            password=rt_pass))
+        bot.give_emailer(Emailer(username=prefs['email_user'],
+            password=email_pass))
 
-        infile.close()
+    # Can import db now that path is secure in prefs
+    import db
 
-    if args.broadcast:
-        th = threading.Thread(target=bot.thread_proc)
-        bot.serve_forever(connect_callback=lambda: th.start())
-        bot.thread_killed = True
+    # Join MUC rooms
+    if isinstance(prefs['rooms'], str):
+        bot.join_room(prefs['rooms'], username=_BOT_NICK)
     else:
-        bot.serve_forever()
+        for room in prefs['rooms']:
+            bot.join_room(room, username=_BOT_NICK)
+
+    # Start the bot
+    th = threading.Thread(target=bot.thread_proc)
+    bot.serve_forever(connect_callback=lambda: th.start())
+    bot.thread_killed = True
