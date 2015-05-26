@@ -11,17 +11,18 @@ from sqlalchemy.orm import sessionmaker
 
 import datetime
 import sys
+import os
 
-_PREFFILE = 'dbpath.txt'
+from RTBot import read_prefs
 
-try:
-    with open(_PREFFILE, 'r') as preffile:
-        _DBFILE = preffile.read().strip()
-except Exception, e:
-    print "%s\n  No db path file." % e
+# Make sure settings are there
+_PREFFILE = 'prefs.txt'
+if not os.path.isfile(_PREFFILE):
+    print "%s\n  No prefs file." % e
     sys.exit(0)
+_PREFS = read_prefs(_PREFFILE)
 
-engine = create_engine('sqlite:///%s' % _DBFILE)
+engine = create_engine('sqlite:///%s' % _PRFS['dbpath'])
 Base = declarative_base()
 
 class Besok(Base):
