@@ -144,7 +144,7 @@ class RTBot(MUCJabberBot):
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
-        self.queues, self.db, self.admin = queues, db, admin
+        self.queues, self.admin = queues, admin
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
