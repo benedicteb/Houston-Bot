@@ -5,15 +5,37 @@ Simple XMPP bot used to get information from the RT (Request Tracker) API.
 
 @author Benedicte Emilie Brækken
 """
-import urllib2, re, argparse, os, urllib, time, threading, xmpp, datetime, sqlite3
-import argparse, csv, smtplib, feedparser, mimetypes, logging, shlex
+import re
+import os
+import logging
+import datetime
+import random
+import threading
+import argparse
 
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-from email.mime.text import MIMEText
+import urllib
+import urllib2
+import time
+import xmpp
+import sqlite3
+import csv
+import smtplib
+import feedparser
+import mimetypes
+import shlex
+
 from jabberbot import JabberBot, botcmd
 from getpass import getpass
+from sqlalchemy import func
+from sqlalchemy.sql import exists
+
 from pyRT.src.RT import RTCommunicator
+from Emailer import Emailer
+
+_PREFFILE = 'prefs.txt'
+_FEEDSFILE = 'rtbot.feeds.txt'
+_PREFSEP = '----'
+_BOT_NICK = 'Anna'
 
 """CONSTANTS"""
 _FORGOTTEN_KOH =\
@@ -75,75 +97,6 @@ hilsen Anna
 """
 
 """CLASSES"""
-class Emailer(object):
-    def __init__(self, username=False, password=False, addr=False):
-        """
-        """
-        self.smtp = 'smtp.uio.no'
-        self.port = 465
-
-        if not username:
-            username = raw_input('Username (UiO-mail): ')
-        if not password:
-            password = getpass('Password (UiO-mail): ')
-        if not addr:
-            addr = raw_input('UiO-mail address: ')
-
-        self.username, self.password, self.addr = username, password, addr
-
-        try:
-            server = smtplib.SMTP_SSL(self.smtp, self.port)
-            server.login(self.username, self.password)
-        except:
-            print 'Wrong e-mailing credentials. Quitting.'
-            sys.exit(0)
-
-    def send_email(self, to, subject, text, infile=False):
-        """
-        """
-        self.server = smtplib.SMTP_SSL(self.smtp, self.port)
-        self.server.login(self.username, self.password)
-
-        msg = MIMEMultipart()
-        msg['Subject'] = subject
-        msg['To'] = to
-        msg['From'] = self.addr
-        body_text = MIMEText(text, 'plain', 'utf-8')
-        msg.attach(body_text)
-
-        if infile:
-            ctype, encoding = mimetypes.guess_type(infile)
-            if ctype is None or encoding is not None:
-                ctype = "application/octet-stream"
-            maintype, subtype = ctype.split("/", 1)
-
-            if maintype == "text":
-                fp = open(infile)
-                # Note: we should handle calculating the charset
-                attachment = MIMEText(fp.read(), _subtype=subtype)
-                fp.close()
-            elif maintype == "image":
-                fp = open(infile, "rb")
-                attachment = MIMEImage(fp.read(), _subtype=subtype)
-                fp.close()
-            elif maintype == "audio":
-                fp = open(infile, "rb")
-                attachment = MIMEAudio(fp.read(), _subtype=subtype)
-                fp.close()
-            else:
-                fp = open(infile, "rb")
-                attachment = MIMEBase(maintype, subtype)
-                attachment.set_payload(fp.read())
-                fp.close()
-                encoders.encode_base64(attachment)
-            attachment.add_header("Content-Disposition", "attachment", filename=infile)
-            msg.attach(attachment)
-
-        self.server.sendmail(self.addr, to, msg.as_string())
-
-        self.server.quit()
-        self.server = None
-
 class MUCJabberBot(JabberBot):
     """
     Middle-person class for adding some MUC compatability to the Jabberbot.
@@ -186,34 +139,12 @@ class MUCJabberBot(JabberBot):
         return super(MUCJabberBot, self).callback_message(conn, mess)
 
 class RTBot(MUCJabberBot):
-    def __init__(self, username, password, queues, admin, db='rtbot.db'):
+    def __init__(self, username, password, queues, admin):
         """
         queues is which queues to broadcast status from.
         """
         self.joined_rooms = []
-        self.queues, self.db, self.admin = queues, db, admin
-
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        # Create database tables
-        c.execute("""CREATE TABLE IF NOT EXISTS kohbesok
-                     (date text, visitors integer)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS ops
-                     (jid text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS users
-                     (jid text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS rss
-                     (title text)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS pakker
-                     (recipient TEXT, sender TEXT, enummer TEXT, email TEXT, id
-                     INTEGER PRIMARY KEY, notes TEXT, date_added TEXT, hentet
-                     INTEGER, hentet_av TEXT, hentet_da TEXT, registrert_av TEXT,
-                     registrert_hentet_av TEXT)""")
-
-        dbconn.commit()
-        dbconn.close()
-
+        self.queues, self.admin = queues, admin
         super(RTBot, self).__init__(username, password, only_direct=True)
 
     @botcmd
@@ -253,39 +184,26 @@ class RTBot(MUCJabberBot):
             now = datetime.datetime.now()
             dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
 
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('%s attempt nypakke failed, no db connection.'\
-                        % chatter)
-                return 'Error, could not connect to database.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT max(id) FROM pakker')
-            max_id = c.fetchone()[0]
+            s = db.load_session()
+            max_id = s.query(func.max(db.Package))
+            s.close()
 
             if max_id == None:
                 new_id = 0
             else:
                 new_id = max_id + 1
 
-            indata = (args.recipient, args.sender, args.enummer, args.email,
-                    new_id, args.notes, dt_str, 0, '', '', chatter, '')
-            instr = 'INSERT INTO pakker VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+            new_package = db.Package(recipient=args.recipient,
+                    sender=args.sender, enummer=args.enummer, email=args.email,
+                    notes=args.notes, registrert_av=chatter)
 
-            try:
-                c.execute(instr, indata)
-            except:
-                dbconn.close()
-                logging.warning('Adding nypakke to db failed for line\n  %s'\
-                        % str(indata) )
-                return 'Unable to save nypakke to database.'
+            s = db.load_session()
+            s.add(new_package)
+            s.commit()
+            s.close()
 
             logging.info('%s added package-line\n  "%s"'\
                     % (chatter, str(indata)))
-
-            dbconn.commit()
-            dbconn.close()
 
             if args.enummer:
                 self.emailer.send_email(args.email, u'Ny pakke fra %s, hente-id: %d'\
@@ -298,22 +216,17 @@ class RTBot(MUCJabberBot):
 
             return 'OK, package registered with id %d and e-mail sent to %s.' % (new_id, args.email)
         elif args.command == 'uhentede':
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.error('Listing packages failed due to no db connection.')
-                return 'Could not connect to database.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker WHERE hentet=?', (0,))
-            rs = c.fetchall()
-            dbconn.close()
+            s = db.load_session()
+            rs = s.query(db.Package).filter_by(hentet=False).all()
 
             ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
             for pack in rs:
-                ostring += '\n%5d %20s %20s %20s %10s' % pack
+                ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
+                        pack.date_added, pack.sender, pack.recipient,
+                        pack.enummer)
 
+            s.close()
             logging.info('%s listed all un-fetched packages.' % chatter)
             return ostring
         elif args.command == 'hent':
@@ -322,96 +235,51 @@ class RTBot(MUCJabberBot):
                                 % chatter)
                 return 'Specify id and picker-upper with\n  pakke hent --id id --picker "person som plukker opp"'
 
+            s = db.load_session()
+
             try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT email FROM pakker WHERE id=?', ( args.id, ))
-            rs = c.fetchone()
-            dbconn.close()
-
-            email = rs[0]
-
-            if not rs:
+                pack = s.query(db.Package).filter_by(id=args.id).one()
+            except Exception, e:
+                logging.warning(e)
                 logging.warning('%s tried to pickup non-existing package.'\
                         % chatter)
                 return 'No such package.'
 
-            now = datetime.datetime.now()
-            dt_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
+            pack.hentet = True
+            pack.hentet_av = args.picker
+            pack.hentet_da = datetime.datetime.utcnow()
+            pack.registrert_hentet_av = chatter
 
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
+            s.commit()
+            s.close()
 
-            c = dbconn.cursor()
-            c.execute("""UPDATE pakker SET
-                         hentet=?,hentet_av=?,hentet_da=?,registrert_hentet_av=?
-                         WHERE id=?""", ( 1, args.picker, dt_str, chatter, args.id))
-            dbconn.commit()
-            dbconn.close()
-
-            self.emailer.send_email(email, 'Kvittering på hentet pakke %d'\
+            self.emailer.send_email(pack.email, 'Kvittering på hentet pakke %d'\
                     % args.id, _PACKAGE_KVIT % (args.picker, args.id) )
 
             return 'OK, pakke med id %d registrert som hentet av %s.' % (args.id, args.picker)
         elif args.command == 'siste':
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT id, date_added, sender, recipient, enummer FROM pakker ORDER BY date_added DESC')
-            rs = c.fetchall()
-            dbconn.close()
+            s = db.load_session()
+            rs = s.query(db.Package).order_by(db.Package.id.desc()).all()
 
             ostring = '\n%5s %20s %20s %20s %10s' % ('Id', 'Date recieved', 'Sender', 'Recipient', 'E-nummer')
 
             counter = 1
             for pack in rs:
-                ostring += '\n%5d %20s %20s %20s %10s' % pack
+                ostring += '\n%5d %20s %20s %20s %10s' % (pack.id,
+                        pack.date_added, pack.sender, pack.recipient,
+                        pack.enummer)
                 counter += 1
                 if counter == 10:
                     break
+
+            s.close()
 
             logging.info('%s listed last 10 packages.' % chatter)
             return ostring
         elif args.command == 'show':
             if args.id == None:
                 return 'You can only show with id.'
-
-            try:
-                dbconn = sqlite3.connect(self.db)
-            except:
-                logging.warning('Could not connect to db.')
-                return 'Could not connect to db.'
-
-            c = dbconn.cursor()
-            c.execute('SELECT * FROM pakker WHERE id=?', ( args.id, ))
-            rs = c.fetchone()
-            dbconn.close()
-
-            if not rs:
-                logging.info('%s tried to show pakke %d, however does not exist.' % (chatter, args.id))
-                return 'No package with the id %d.' % args.id
-
-            columns = ["Recipient", "Sender", "E-nummer", "Email", "Id",
-                    "Notes", "Date added", "Hentet", "Hentet av", "Hentet når",
-                    "Registrert av", "Registrert hentet av"]
-
-            ostring = ''
-
-            for col,val in zip(columns, rs):
-                ostring += '\n%20s: %20s' % (col,str(val))
-
-            return ostring
+            return "Not implemented yet."
 
     @botcmd
     def useradmin(self, mess, args):
@@ -419,8 +287,6 @@ class RTBot(MUCJabberBot):
         Can be used to set user permissions and add users.
         """
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
         chatter, resource = str(mess.getFrom()).split('/')
 
         if not self.is_op(chatter) and chatter != self.admin:
@@ -437,55 +303,48 @@ class RTBot(MUCJabberBot):
         try:
             args = parser.parse_args(words[1:])
         except:
-            dbconn.close()
             logging.info('%s used bad syntax for useradmin.' % chatter)
             return 'Usage: useradd op/user/list --jid username@domain'
 
-        c.execute('SELECT * FROM users')
-        users = c.fetchall()
+        s = db.load_session()
+        users = s.query(db.User).all()
 
         if args.level == 'op':
             if self.is_op(args.jid):
-                dbconn.close()
                 return '%s is already an op.' % args.jid
 
-            t = ( args.jid, )
-            c.execute('INSERT INTO ops VALUES (?)', t)
-            dbconn.commit()
-            dbconn.close()
+            new_op = db.Op(jid=args.jid)
+            s.add(new_op)
+            s.commit()
+            s.close()
 
             logging.info('%s made %s an op.' % (chatter, args.jid))
-
             return 'OK, made %s an op.' % args.jid
         elif args.level == 'user':
             if self.is_user(args.jid):
-                dbconn.close()
                 return '%s is already a user.' % args.jid
 
-            t = ( args.jid, )
-            c.execute('INSERT INTO users VALUES (?)', t)
-            dbconn.commit()
+            new_user = db.User(jid=args.jid)
+            s.add(new_user)
+            s.commit()
+            s.close()
 
             logging.info('%s made %s a user.' % (chatter, args.jid))
-
-            dbconn.close()
             return 'OK, made %s a user.' % args.jid
         elif args.level == 'list':
             ostring = '--- OPS: ---'
 
             for op in self.get_ops():
-                ostring += '\n* %s' % op
+                ostring += '\n* %s' % op.jid
 
             ostring += '\n--- USERS: ---'
 
-            c.execute('SELECT * FROM users')
-            users = c.fetchall()
-
             for user in self.get_users():
-                ostring += '\n* %s' % user
+                ostring += '\n* %s' % user.jid
+
+            s.close()
 
             logging.info('%s listed all users and ops.' % chatter)
-            dbconn.close()
             return ostring
 
     @botcmd
@@ -494,27 +353,30 @@ class RTBot(MUCJabberBot):
         Lists last 10 entries in kos table.
         """
         chatter, resource = str(mess.getFrom()).split('/')
-        now = datetime.datetime.now()
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
 
         if not self.is_user(chatter) and not self.is_op(chatter):
-            dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
         output = ""
         counter = 0
-        for row in c.execute('SELECT * FROM kohbesok ORDER BY date DESC'):
-            output += '%10s: %4d\n' % (row[0], int(row[1]))
+
+        try:
+            s = db.load_session()
+            rows = s.query(db.Besok).order_by(db.Besok.date.desc()).all()
+        except Exception, e:
+            print e
+
+        for row in rows:
+            output += '%10s: %4d\n' % (row.date.strftime('%Y-%m-%d'), row.visitors)
             counter += 1
 
             if counter == 10:
                 break
 
-        logging.info('%s listed last 10 koh visits.' % chatter)
+        s.close()
 
-        dbconn.close()
+        logging.info('%s listed last 10 koh visits.' % chatter)
         return output
 
     @botcmd
@@ -540,7 +402,7 @@ class RTBot(MUCJabberBot):
         """
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         now = datetime.datetime.now()
-        d = datetime.datetime.strftime(now, '%Y-%m-%d')
+        d = now.strftime('%Y-%m-%d')
         chatter, resource = str(mess.getFrom()).split('/')
 
         parser = argparse.ArgumentParser(description='kohbesok command parser')
@@ -552,72 +414,55 @@ class RTBot(MUCJabberBot):
 
         try:
             args = parser.parse_args(words[1:])
-            datetime.datetime.strptime(args.date, '%Y-%m-%d')
+            date_parsed = datetime.datetime.strptime(args.date, '%Y-%m-%d')
         except:
             logging.info('%s used bad syntax for kohbesok.' % chatter)
             return 'Usage: kohbesok register/edit visitors [--date YYYY-mm-dd]'
 
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
         if not self.is_user(chatter) and not self.is_op(chatter):
-            dbconn.close()
             logging.info('%s, not op nor user tried to run kohbesok.' % chatter)
             return 'You are neither a registered user or op, go away!'
 
         if args.command == 'register':
             # Check if in future
-            if datetime.datetime.strptime(args.date, '%Y-%m-%d') > now:
-                dbconn.close()
+            if date_parsed > now:
                 logging.info('%s tried to register %d for %s ignored since in future.' % (chatter, args.visitors, args.date))
                 return 'You cannot register for dates in the future.'
 
-            # Check if already registered this date
-            t = ( args.date, )
-            c.execute('SELECT * FROM kohbesok WHERE date=?', t)
-            if c.fetchone():
-                dbconn.close()
+            s = db.load_session()
+            if s.query(exists().where(db.Besok.date==date_parsed)).scalar():
                 return "This date is already registered."
 
-            t = ( args.date, args.visitors )
-
-            c.execute('INSERT INTO kohbesok VALUES (?,?)', t)
-            dbconn.commit()
+            s.add(db.Besok(visitors=args.visitors, date=date_parsed))
+            s.commit()
+            s.close()
 
             logging.info('%s registered %d koh-visitors for %s' \
                     % (chatter, args.visitors, args.date))
-
-            dbconn.close()
-
             return 'OK, registered %d for %s.' % (args.visitors, args.date)
         elif args.command == 'edit':
             if not self.is_op(chatter):
-                dbconn.close()
                 logging.info('%s (not op) tried to edit koh post.' % chatter)
                 return "You are not an op and cannot edit."
 
-            # Update an existing row
-            c.execute('SELECT * FROM kohbesok WHERE date=?', (args.date, ))
-            rs = c.fetchone()
-            if not rs:
-                dbconn.close()
+            s = db.load_session()
+            try:
+                besok = s.query(db.Besok).filter_by(date=date_parsed).one()
+            except Exception, e:
                 logging.info('%s tried to edit non-existing data' % chatter)
                 return "There is no data on this date yet."
 
-            old_value = rs[1]
+            old_value = besok.visitors
+            besok.visitors = args.visitors
 
-            c.execute('UPDATE kohbesok SET visitors=? where date=?',
-                    (args.visitors, args.date))
-            dbconn.commit()
+            s.commit()
+            s.close()
 
             logging.info('%s changed %d to %d for %s' % (chatter, old_value,
                 args.visitors, args.date))
 
-            dbconn.close()
-
             return "OK, updated data for %s. Changed %d to %d."\
                     % (args.date, old_value, args.visitors)
-
 
     @botcmd
     def rtinfo(self, mess, args):
@@ -651,13 +496,41 @@ class RTBot(MUCJabberBot):
         """
         Si god morgen.
         """
-        return "God morgen, førstelinja!"
+        hilsen = "God morgen, førstelinja! "
+
+        ekstra = [
+            "Hva skjer?",
+            "Ønsker dere en fin dag!",
+            "Jeg føler at dette blir en effektiv dag.",
+            "Er det fint vær i dag?",
+            "Ikke glem å spise frokost.",
+            "Æsj, hvor ble det av kaffen min?",
+            "... Where there's a whip, there's a way!",
+            "Hold the waterworks till the end of the day there hun'",
+            "Kommer det mange pakker i dag?",
+            "Har lokal-IT kommet på jobb tro?",
+            "Føler meg ikke bra jeg, sov så dårlig i natt..",
+            "We're workin' nine to five!",
+            "Dere er awesome!",
+            "Hvor mange brukere tror vi det kommer innom i dag?",
+            "Husk å vise HF at dere liker dem litt, viktig med kjærlighet.",
+            "Har dere husket å logge på telefonene?",
+            "Kom med flere idéer til hva jeg kan si om morgenen. Ække så lett å finne på ting..",
+            "Jeg er glad i dere!",
+            "Kos dere på jobb!",
+            "Lykke til med jobb!",
+            "Dere er kule!",
+            "This was a triumph, I'm making a note here, HUGE SUCCESS!",
+            "The cake is a lie.",
+        ]
+
+        return hilsen + random.choice(ekstra)
 
     def godkveld(self):
         """
         Si god kveld.
         """
-        return "God kveld 'a! Nå har dere fortjent litt fri :)"
+        return "God kveld alle sammen!"
 
     @botcmd
     def exportkoh(self, mess, args):
@@ -683,14 +556,19 @@ class RTBot(MUCJabberBot):
         writer = csv.writer(csvfile, delimiter=' ',
                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
         logging.info('Finding all kohbesok between %s and %s' % (args.start, args.end))
 
         writer.writerow(['Date', 'Visitors'])
-        for row in c.execute('SELECT * FROM kohbesok WHERE date BETWEEN "%s" AND "%s" ORDER BY date' % (args.start, args.end)):
-            writer.writerow([row[0], row[1]])
+
+        s = db.load_session()
+
+        rows = s.query(db.Besok).filter(db.Besok.date.between(args.start,
+            args.end)).order_by(db.Besok.date)
+
+        for row in rows:
+            writer.writerow([row.date, row.visitors])
+
+        s.close()
 
         csvfile.close()
 
@@ -707,12 +585,12 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
-    def muc_join_room(self, room, *args, **kwargs):
+    def join_room(self, room, *args, **kwargs):
         """
         Need a list of all joined rooms.
         """
         self.joined_rooms.append(room)
-        super(RTBot, self).muc_join_room(room, *args, **kwargs)
+        super(RTBot, self).join_room(room, *args, **kwargs)
 
     def _post(self, text):
         """
@@ -759,43 +637,37 @@ class RTBot(MUCJabberBot):
         """
         Returns list of all users.
         """
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        c.execute('SELECT * FROM users')
-        users = [elm[0] for elm in c.fetchall()]
-
-        dbconn.close()
+        s = db.load_session()
+        users = s.query(db.User).all()
+        s.close()
         return users
 
     def get_ops(self):
         """
         Returns list of all users.
         """
-        dbconn = sqlite3.connect(self.db)
-        c = dbconn.cursor()
-
-        c.execute('SELECT * FROM ops')
-        ops = [elm[0] for elm in c.fetchall()]
-
-        dbconn.close()
+        s = db.load_session()
+        ops = s.query(db.Op).all()
+        s.close()
         return ops
 
     def is_op(self, chatter):
         """
         Returns True / False wether or not user is op.
         """
-        if chatter in self.get_ops():
-            return True
-        return False
+        s = db.load_session()
+        result = s.query(exists().where(db.Op.jid==chatter)).scalar()
+        s.close()
+        return result
 
     def is_user(self, chatter):
         """
         Returns True / False wether or not user is user.
         """
-        if chatter in self.get_users():
-            return True
-        return False
+        s = db.load_session()
+        result = s.query(exists().where(db.User.jid==chatter)).scalar()
+        s.close()
+        return result
 
     def is_authenticated(self, chatter):
         """
@@ -805,16 +677,60 @@ class RTBot(MUCJabberBot):
             return False
         return True
 
+    def check_post_rss(self):
+        if not os.path.isfile(_FEEDSFILE):
+            logging.warning("No rss feeds file '%s' found." % _FEEDSFILE)
+            return
+
+        with open(_FEEDSFILE, 'r') as ffile:
+            for line in ffile:
+                uri = line.strip()
+                feed = feedparser.parse(uri)
+
+                sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
+                sorted_entries.reverse()
+                ndt = sorted_entries[0]['title']
+
+                updated =\
+                    datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['updated_parsed']))
+                published =\
+                    datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['published_parsed']))
+
+                already_posted = False
+
+                s = db.load_session()
+
+                if s.query(exists().where(db.News.title==ndt)).scalar():
+                    logging.info("'%s' is in db. Post again? Published: %s, updated: %s"\
+                                    % (ndt, published, updated))
+
+                    dup = s.query(db.News).filter_by(source=uri,title=ndt).one()
+
+                    if not updated > dup.published:
+                        logging.info("'%s' was not new, skipping posting." % ndt)
+                        already_posted = True
+                    else:
+                        # Delete old record
+                        logging.info("'%s' was old, deleting row for adding of new." % ndt)
+                        s.delete(dup)
+                        s.commit()
+
+                s.close()
+
+                if not already_posted:
+                    self._post(' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
+
+                    logging.info("Posted rss title '%s' from '%s' and added to db."\
+                                    % (ndt, uri))
+
+                    # Add this title to the list of printed titles
+                    s = db.load_session()
+                    s.add(db.News(title=ndt, source=uri, published=updated))
+                    s.commit()
+                    s.close()
+
     def thread_proc(self):
-        spam_upper = 100
-        utskrift_tot = self.RT.get_no_all_open('houston-utskrift')
-
-        sendspam = False
-        sendutskrift = False
-
         while not self.thread_killed:
-            logging.info('Tick')
-
             now = datetime.datetime.now()
             start,end = self._opening_hours(now)
 
@@ -822,13 +738,6 @@ class RTBot(MUCJabberBot):
                 for queue in self.queues:
                     tot = self.RT.get_no_all_open(queue)
                     unowned = self.RT.get_no_unowned_open(queue)
-
-                    if queue == 'spam-suspects' and tot > spam_upper:
-                        sendspam = True
-
-                    if queue == 'houston-utskrift' and tot > utskrift_tot:
-                        sendutskrift = True
-                        utskrift_tot = tot
 
                     if tot > 0:
                         text = "'%s' : %d unowned of total %d tickets."\
@@ -841,16 +750,6 @@ class RTBot(MUCJabberBot):
                     self._post(self.godmorgen())
                 if now.hour == end:
                     self._post(self.godkveld())
-
-            if sendspam and now.hour != end:
-                text = "Det er over %d saker i spam-køen! På tide å ta dem?" % spam_upper
-                self._post(text)
-                sendspam = False
-
-            if sendutskrift and now.hour != end:
-                text = "Det har kommet en ny sak i 'houston-utskrift'!"
-                self._post(text)
-                sendutskrift = False
 
             if now.minute == 0 and now.hour == start:
                 # Start counting
@@ -873,63 +772,32 @@ class RTBot(MUCJabberBot):
                 text = "Nå kan en begynne å tenke på kveldsrunden!"
                 self._post(text)
 
+            if now.minute == 55 and now.hour == 14:
+                text = "Husk å registrere antall besøkende!"
+                self._post(text)
+
+            if now.minute == 0 and now.hour == 15:
+                text = "Nå stenger KOH!"
+                self._post(text)
+
             if now.minute == 0 and now.hour == 16 and now.isoweekday() not in [6, 7]:
-                # Mail boss if KOH visits not registered
-                dbconn = sqlite3.connect(self.db)
-                c = dbconn.cursor()
+                s = db.load_session()
 
-                # Count if there is a registration today
-                d = datetime.datetime.strftime(now, '%Y-%m-%d')
-                t = (d,)
-                c.execute('SELECT * FROM kohbesok WHERE date=?', (d, ) )
-                rs = c.fetchone()
+                now_parsed = datetime.datetime.strptime(now.strftime('%Y-%m-%d'), '%Y-%m-%d')
 
-                if not rs:
-                    # No data registered today, send notification
-                    self.emailer.send_email('b.e.brakken@usit.uio.no', 'Glemt KOH registreringer i dag',
-                            _FORGOTTEN_KOH)
-                    self.emailer.send_email('rune.ersdal@usit.uio.no', 'Glemt KOH registreringer i dag',
+                if not s.query(exists().where(db.Besok.date==now_parsed)).scalar():
+                    text = "Det ble ikke registrert antall besøkende i dag.. Sender epost!"
+                    self._post(text)
+
+                    self.emailer.send_email('houston-forstelinje-ansatte@usit.uio.no',
+                            'Glemt KOH registreringer',
                             _FORGOTTEN_KOH)
 
-                dbconn.close()
+                s.close()
 
-            # After this processes taking time can be put
-            feed = feedparser.parse(_DRIFT_URL)
-            sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
-            sorted_entries.reverse()
-            newest_drift_title = sorted_entries[0]['title']
-            already_posted = False
-
-            try:
-                dbconn = sqlite3.connect(self.db)
-                c = dbconn.cursor()
-
-                c.execute('SELECT * FROM rss WHERE title=?',
-                        ( newest_drift_title, ) )
-                rs = c.fetchone()
-
-                dbconn.close()
-
-                if rs:
-                    already_posted = True
-            except:
-                logging.warning('Could not check for newest title in rss table.')
-
-            if not already_posted:
-                self._post('NY DRIFTSMELDING: %s' % ' - '.join([sorted_entries[0]['title'], sorted_entries[0]['link']]))
-
-                # Add this title to the list of printed titles
-                try:
-                    dbconn = sqlite3.connect(self.db)
-                    c = dbconn.cursor()
-
-                    c.execute('INSERT INTO rss VALUES (?)',
-                            ( sorted_entries[0]['title'], ))
-
-                    dbconn.commit()
-                    dbconn.close()
-                except:
-                    logging.warning('Could not connect to db for rss title storage.')
+            # Thread for checking rss
+            th = threading.Thread(target=self.check_post_rss)
+            th.start()
 
             # Do a tick every minute
             for i in range(60):
@@ -937,86 +805,84 @@ class RTBot(MUCJabberBot):
                 if self.thread_killed:
                     return
 
+def read_prefs(path):
+    """
+    """
+    prefs = {}
+
+    with open(path, 'r') as preffile:
+        for line in preffile:
+            key,value = line.strip().split('----')
+
+            if len(value.split(',')) != 1:
+                prefs[key] = value.split(',')
+            else:
+                prefs[key] = value
+
+    return prefs
+
+def write_prefs(data, path):
+    """
+    """
+    with open(path, 'w') as preffile:
+        for key,value in data.iteritems():
+            if isinstance(value, list):
+                preffile.write(key + _PREFSEP + ','.join(value) + '\n')
+            else:
+                preffile.write(_PREFSEP.join([key,value]) + "\n")
+
 if __name__ == '__main__':
     logging.basicConfig(filename='rtbot.log', level=logging.INFO,
             format='[%(asctime)s] %(levelname)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S')
 
-    # Parse commandline
-    parser = argparse.ArgumentParser()
+    if not os.path.isfile(_PREFFILE):
+        prefs = {}
+        prefs['chat_user'] = raw_input('Chat username (remember @chat.uio.no if UiO): ')
+        prefs['super_user'] = raw_input('JID (username@chatdomain) who can administrate bot: ')
+        prefs['email_user'] = raw_input('E-mail username: ')
+        prefs['rt_user'] = raw_input('RT username: ')
+        prefs['rooms'] = raw_input('Chat rooms to be in: ')
+        prefs['queues'] = raw_input('Queues to post hourly status for: ')
+        prefs['dbpath'] = raw_input('Path to db: ')
+        write_prefs(prefs, _PREFFILE)
+    else:
+        prefs = read_prefs(_PREFFILE)
 
-    parser.add_argument('--rooms', help='Textfile with XMPP rooms one per line.',
-        default='default_rooms.txt', type=str)
-    parser.add_argument('--queues', help='Which queues to broadcast status from.',
-        type=str)
-    parser.add_argument('--broadcast', help='Should bot broadcast queue status?',
-        action='store_true')
-
-    args = parser.parse_args()
-
-    # Gather chat credentials
-    chat_username = raw_input('Chat username (remember @chat.uio.no if UiO): ')
-    chat_password = getpass('Chat password: ')
-    chat_admin = raw_input('JID (username@chatdomain) who can administrate bot: ')
-
-    # Write queues file
-    filename = 'queues.txt'
-    queue = []
-    if args.broadcast:
-        if not os.path.isfile(filename):
-            # If room-file doesnt exist, ask for a room and create the file
-            queue = raw_input('Queue to broadcast status from: ')
-
-            outfile = open(filename, 'w')
-            outfile.write(queue)
-            outfile.write('\n')
-            outfile.close()
-
-            queue = [queue]
-        else:
-            # If it does exist, loop through it and list all queues
-            infile = open(filename, 'r')
-
-            for line in infile:
-                queue.append(line.strip())
-
-            infile.close()
+    # Gather passwords
+    chat_pass = getpass('Chat password for %s: ' % prefs['chat_user'])
 
     # Initiate bot
-    bot = RTBot(chat_username, chat_password, queue, admin=chat_admin)
+    bot = RTBot(prefs['chat_user'], chat_pass, prefs['queues'],
+            admin=prefs['super_user'])
 
-    # Give RT communicator
-    bot.give_RT_conn(RTCommunicator())
+    if prefs['email_user'] == prefs['rt_user']:
+        email_rt_pass = getpass('Email / RT password for %s: ' % prefs['email_user'])
 
-    # Give Emailer
-    bot.give_emailer(Emailer())
-
-    # Bot nickname
-    nickname = 'Anna'
-
-    # Write rooms file
-    if not os.path.isfile(args.rooms):
-        # If room-file doesnt exist, ask for a room and create the file
-        room = raw_input('Room to join: ')
-
-        outfile = open(args.rooms, 'w')
-        outfile.write(room)
-        outfile.write('\n')
-        outfile.close()
-
-        bot.muc_join_room(room, username=nickname)
+        bot.give_RT_conn(RTCommunicator(username=prefs['rt_user'],
+            password=email_rt_pass))
+        bot.give_emailer(Emailer(username=prefs['email_user'],
+            password=email_rt_pass))
     else:
-        # If it does exist, loop through it and join all the rooms
-        infile = open(args.rooms, 'r')
+        email_pass = getpass('Email password for %s: ' % prefs['email_user'])
+        rt_pass = getpass('RT password for %s: ' % prefs['rt_user'])
 
-        for line in infile:
-            bot.muc_join_room(line.strip(), username=nickname)
+        bot.give_RT_conn(RTCommunicator(username=prefs['rt_user'],
+            password=rt_pass))
+        bot.give_emailer(Emailer(username=prefs['email_user'],
+            password=email_pass))
 
-        infile.close()
+    # Can import db now that path is secure in prefs
+    import db
 
-    if args.broadcast:
-        th = threading.Thread(target=bot.thread_proc)
-        bot.serve_forever(connect_callback=lambda: th.start())
-        bot.thread_killed = True
+    # Join MUC rooms
+    if isinstance(prefs['rooms'], str):
+        bot.join_room(prefs['rooms'], username=_BOT_NICK)
     else:
-        bot.serve_forever()
+        for room in prefs['rooms']:
+            bot.join_room(room, username=_BOT_NICK)
+
+    # Start the bot
+    th = threading.Thread(target=bot.thread_proc)
+    bot.serve_forever(connect_callback=lambda: th.start())
+    bot.thread_killed = True
