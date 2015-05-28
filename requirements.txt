@@ -1,0 +1,5 @@
+argparse
+SQLAlchemy
+xmpppy
+feedparser
+jabberbot
