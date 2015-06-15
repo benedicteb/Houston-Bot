@@ -689,7 +689,13 @@ class RTBot(MUCJabberBot):
 
                 sorted_entries = sorted(feed['entries'], key=lambda entry: entry['date_parsed'])
                 sorted_entries.reverse()
-                ndt = sorted_entries[0]['title']
+
+                try:
+                    ndt = sorted_entries[0]['title']
+                except Exception as e:
+                    logging.error("No RSS entries from '%s', skipping." % uri)
+                    logging.exception(e)
+                    continue
 
                 updated =\
                     datetime.datetime.fromtimestamp(time.mktime(sorted_entries[0]['updated_parsed']))
