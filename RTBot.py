@@ -290,7 +290,6 @@ class RTBot(MUCJabberBot):
         chatter, resource = str(mess.getFrom()).split('/')
 
         if not self.is_op(chatter) and chatter != self.admin:
-            dbconn.close()
             logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
 
