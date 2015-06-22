@@ -289,7 +289,7 @@ class RTBot(MUCJabberBot):
         words = shlex.split(mess.getBody().strip().encode('UTF-8'))
         chatter, resource = str(mess.getFrom()).split('/')
 
-        if not self.is_op(chatter) and chatter != self.admin:
+        if not (self.is_op(chatter) or self.is_user(chatter)) and chatter != self.admin:
             logging.info('%s tried to call useradmin.' % chatter)
             return 'You are not an op nor an admin.'
 
