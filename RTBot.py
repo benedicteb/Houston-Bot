@@ -333,6 +333,9 @@ class RTBot(MUCJabberBot):
             logging.info('%s made %s a user.' % (chatter, args.jid))
             return 'OK, made %s a user.' % args.jid
         elif args.level == 'list':
+            if not (self.is_op(chatter) or self.is_user(chatter)):
+                logging.info("'%s' tried to list useradmin however not registered." % chatter)
+                return "You are not a registered user and cannot view all the users."
             ostring = '--- OPS: ---'
 
             for op in self.get_ops():
