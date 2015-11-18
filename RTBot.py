@@ -786,7 +786,8 @@ class RTBot(MUCJabberBot):
                 text = "Husk å registrere antall besøkende!"
                 self._post(text)
 
-            if now.minute == 0 and now.hour == 15:
+            # KOH only open on weekdays
+            if now.minute == 0 and now.hour == 15 and now.isoweekday() not in [6, 7]:
                 text = "Nå stenger KOH!"
                 self._post(text)
 
