@@ -1,5 +1,5 @@
 argparse
 SQLAlchemy
-xmpppy
+git+https://github.com/ArchipelProject/xmpppy
 feedparser
 jabberbot
