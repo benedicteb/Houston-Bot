@@ -589,12 +589,12 @@ class RTBot(MUCJabberBot):
         """
         return "Sorry, I'm not allowed to talk privately."
 
-    def join_room(self, room, *args, **kwargs):
+    def muc_join_room(self, room, *args, **kwargs):
         """
         Need a list of all joined rooms.
         """
         self.joined_rooms.append(room)
-        super(RTBot, self).join_room(room, *args, **kwargs)
+        super(RTBot, self).muc_join_room(room, *args, **kwargs)
 
     def _post(self, text):
         """
@@ -887,10 +887,10 @@ if __name__ == '__main__':
 
     # Join MUC rooms
     if isinstance(prefs['rooms'], str):
-        bot.join_room(prefs['rooms'], username=_BOT_NICK)
+        bot.muc_join_room(prefs['rooms'], username=_BOT_NICK)
     else:
         for room in prefs['rooms']:
-            bot.join_room(room, username=_BOT_NICK)
+            bot.muc_join_room(room, username=_BOT_NICK)
 
     # Start the bot
     th = threading.Thread(target=bot.thread_proc)
