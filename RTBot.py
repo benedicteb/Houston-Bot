@@ -782,30 +782,6 @@ class RTBot(MUCJabberBot):
                 text = "Nå kan en begynne å tenke på kveldsrunden!"
                 self._post(text)
 
-            if now.isoweekday() not in [6, 7]:
-                if now.minute == 55 and now.hour == 14:
-                    text = "Husk å registrere antall besøkende!"
-                    self._post(text)
-
-                if now.minute == 0 and now.hour == 15:
-                    text = "Nå stenger KOH!"
-                    self._post(text)
-
-                if now.minute == 0 and now.hour == 16:
-                    s = db.load_session()
-
-                    now_parsed = datetime.datetime.strptime(now.strftime('%Y-%m-%d'), '%Y-%m-%d')
-
-                    if not s.query(exists().where(db.Besok.date==now_parsed)).scalar():
-                        text = "Det ble ikke registrert antall besøkende i dag.. Sender epost!"
-                        self._post(text)
-
-                        self.emailer.send_email('houston-forstelinje-ansatte@usit.uio.no',
-                                'Glemt KOH registreringer',
-                                _FORGOTTEN_KOH)
-
-                    s.close()
-
             # Thread for checking rss
             th = threading.Thread(target=self.check_post_rss)
             th.start()
